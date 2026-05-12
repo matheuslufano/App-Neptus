@@ -1,62 +1,81 @@
-from flask import request, jsonify
-from app import db
-from app.exceptions import BadRequestError, ConflictRequestError, NotFoundRequestError
-from app.exceptions.app_request_Exception import AppRequestError
-from app.models.perfil_model import Perfil
-from app.enum.PermissionEnum import PermissionEnum
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.utils.auth import get_current_user, get_admin_user
 from app.models.usuario_model import Usuario
 from app.services.perfil_service import PerfilService
-from app.utils.permissoes import permission_required, login_required
+from app.schemas.perfil_schema import Perfil, PerfilCreate, PerfilUpdate
+from app.exceptions.app_request_Exception import AppRequestError
+from uuid import UUID
 
+def salvar_perfil(
+    data: PerfilCreate, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Cria um novo perfil de usuário (Apenas Super Admin).
+    
+    Define o nome do perfil e as permissões associadas.
+    """
+    try:
+        return PerfilService.criar_perfil(db, data.nome, data.permissoes)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.PERFIL_CRIAR)
-def salvar_perfil():
-  data = request.get_json()
-  try:
-    nome = data.get("nome")
-    permissoes = data.get("permissoes", [])
-    return jsonify(PerfilService.criar_perfil(nome, permissoes).to_dict()), 201
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def listar_perfil(
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user),
+    page: int = 1, 
+    per_page: int = 10
+):
+    """
+    Lista todos os perfis cadastrados no sistema com paginação (Apenas Super Admin).
+    """
+    try:
+        return PerfilService.listar_perfis(db, page, per_page)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.PERFIL_LISTAR)
-def listar_perfil():
-  page = request.args.get('pagina_atual', 1, type=int)
-  per_page = request.args.get('itens_por_pagina', 10, type=int)
-  return jsonify(PerfilService.listar_perfis(page, per_page)), 200
+def atualizar_perfil(
+    id: UUID, 
+    data: PerfilUpdate, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Atualiza as informações de um perfil existente (Apenas Super Admin).
+    """
+    try:
+        return PerfilService.atualizar_perfil(db, str(id), data.nome, data.permissoes)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.PERFIL_EDITAR)
-def atualizar_perfil(id):
-  data = request.get_json()
-  try:
-    nome = data.get("nome")
-    permissoes = data.get("permissoes", [])
-    return jsonify(
-        PerfilService.atualizar_perfil(id, nome, permissoes).to_dict()
-    ), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def deletar_perfil(
+    id: UUID, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Remove um perfil do sistema (Apenas Super Admin).
+    
+    Observação: Perfis associados a usuários podem ter restrições de exclusão.
+    """
+    try:
+        message = PerfilService.deletar_perfil(db, str(id))
+        return {"mensagem": message}
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-
-@login_required
-@permission_required(PermissionEnum.PERFIL_EXCLUIR)
-def deletar_perfil(id):
-  try:
-    return jsonify({'messagem': PerfilService.deletar_perfil(id)}), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-
-@login_required
-@permission_required(PermissionEnum.PERFIL_DETALHAR)
-def buscar_perfil(id):
-  try:
-    return jsonify(PerfilService.buscar_perfil(id).to_dict()), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-
-
+def buscar_perfil(
+    id: UUID, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Busca os detalhes de um perfil específico pelo seu ID (Apenas Super Admin).
+    """
+    try:
+        return PerfilService.buscar_perfil(db, str(id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)

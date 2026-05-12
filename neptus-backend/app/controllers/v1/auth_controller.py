@@ -1,58 +1,95 @@
-from flask import request, jsonify
-from flask_jwt_extended import get_jwt_identity, jwt_required
-from app.exceptions.app_request_Exception import AppRequestError
+from fastapi import Depends, HTTPException, status, Body, Request
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from app.database import get_db
 from app.services.auth_service import AuthService
+from app.schemas.autenticacao_schema import LoginRequest, ResetPasswordRequest, ResetPasswordConfirm
+from app.exceptions.app_request_Exception import AppRequestError
 
+def register(data: dict, db: Session = Depends(get_db)):
+    """
+    Registra um novo usuário no sistema.
+    
+    Este endpoint cria uma nova conta de usuário com o nome, email e senha fornecidos.
+    """
+    try:
+        return AuthService.registrar_usuario(db, **data)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-def register():
-  return jsonify({
-            "code": "BadRequestError",
-            "message": "Registro de novos usuários está desabilitado.",
-            "status": "301"
-  }), 301
+async def login(
+    request: Request,
+    db: Session = Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends() # This line enables the Swagger UI form
+):
+    """
+    Autentica um usuário e retorna os tokens de acesso.
+    
+    Suporta JSON (frontend) e Form Data (Swagger UI Authorize).
+    """
+    try:
+        content_type = request.headers.get("content-type", "")
+        
+        # If it's a form (from Swagger Authorize)
+        if "application/x-www-form-urlencoded" in content_type:
+            email = form_data.username
+            senha = form_data.password
+        else:
+            # If it's JSON (from frontend or Swagger Try it out)
+            data = await request.json()
+            email = data.get("email")
+            senha = data.get("senha")
 
+        if not email or not senha:
+            raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
+            
+        return AuthService.login(db, email, senha)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Dados de login inválidos: {str(e)}")
 
-def login():
-  data = request.get_json()
-  email = data.get('email')
-  senha = data.get('senha')
-  try:
-    return jsonify(AuthService().login(email, senha)), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def refresh_token(refresh_token: str = Body(..., embed=True)):
+    """
+    Gera um novo access_token usando um refresh_token válido.
+    
+    Permite que o usuário continue autenticado sem precisar fazer login novamente
+    enquanto o refresh_token for válido.
+    """
+    try:
+        return AuthService.refresh_token(refresh_token)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
+def reset_password_request(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Solicita um link para recuperação de senha.
+    
+    Envia um email para o usuário com um token seguro para que ele possa redefinir sua senha.
+    """
+    try:
+        return {"mensagem": AuthService.solicitar_recuperacao_senha(db, data.email)}
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-def authorize_google():
-  return jsonify({
-            "code": "BadRequestError",
-            "message": "Login social está desabilitado.",
-            "status": "301"
-  }), 301
+def reset_password(data: ResetPasswordConfirm, db: Session = Depends(get_db)):
+    """
+    Redefine a senha do usuário usando o token de recuperação.
+    
+    Valida o token enviado por email e atualiza a senha do usuário no banco de dados.
+    """
+    try:
+        return {"mensagem": AuthService.resetar_senha(db, data.token, data.nova_senha)}
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-def reset_password_request():
-  dados = request.get_json()
-  email = dados.get('email')
-
-  try:
-    return jsonify({"mensagem": AuthService().recuperar_senha(email)}), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-
-def reset_password():
-  data = request.get_json()
-  token = data.get('token')
-  senha = data.get('senha')
-  try:
-    return jsonify({"mensagem": AuthService().resetar_senha(token, senha)}), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
- 
-@jwt_required(refresh=True)
-def refresh_token():
-  usuario_id = get_jwt_identity()
-  try:
-    return jsonify({'access_token': AuthService().refresh_token(usuario_id)}), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def authorize_google(token: str = Body(..., embed=True), db: Session = Depends(get_db)):
+    """
+    Realiza o login ou registro através de uma conta Google.
+    
+    Valida o token do Google e autentica o usuário no sistema.
+    """
+    try:
+        return AuthService.google_login(db, token)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)

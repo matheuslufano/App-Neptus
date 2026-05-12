@@ -1,86 +1,91 @@
-from flask import request, jsonify
-from app.enum.PermissionEnum import PermissionEnum
-from app.exceptions.app_request_Exception import AppRequestError
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.utils.auth import get_current_user, get_admin_user
+from app.models.usuario_model import Usuario
 from app.services.propriedade_service import PropriedadeService
-from app.utils.permissoes import login_required, permission_required
+from app.schemas.propriedade_schema import Propriedade, PropriedadeCreate, PropriedadeUpdate
+from app.exceptions.app_request_Exception import AppRequestError
+from uuid import UUID
 
-@login_required
-@permission_required(PermissionEnum.PROPRIEDADE_CRIAR)
-def cadastrar_propriedade():
-  data = request.get_json()
-  try:
-    nome = data.get('nome')
-    proprietario_id = data.get('proprietario_id')
-    return jsonify(
-        PropriedadeService().cadastrar_propriedade(nome,
-                                                   proprietario_id).to_dict()
-    ), 201
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def cadastrar_propriedade(
+    data: PropriedadeCreate, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Cadastra uma nova propriedade e associa a um proprietário (Apenas Super Admin).
+    """
+    try:
+        return PropriedadeService.cadastrar_propriedade(db, data.nome, str(data.proprietario_id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
+def listar_propriedades(
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user),
+    page: int = 1, 
+    per_page: int = 10
+):
+    """
+    Lista todas as propriedades cadastradas no sistema (Apenas Super Admin).
+    """
+    try:
+        return PropriedadeService.listar_propriedades(db, page, per_page)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.PROPRIEDADE_LISTAR)
-def listar_propriedades():
-  page = request.args.get('pagina_atual', 1, type=int)
-  per_page = request.args.get('itens_por_pagina', 10, type=int)
-  return jsonify(PropriedadeService().listar_propriedades(page, per_page)), 200
+def atualizar_propriedade(
+    id: UUID, 
+    data: PropriedadeUpdate, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Atualiza os dados de uma propriedade (Apenas Super Admin).
+    """
+    try:
+        return PropriedadeService.atualizar_propriedade(db, str(id), data.nome, str(data.proprietario_id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.PROPRIEDADE_EDITAR)
-def atualizar_propriedade(id):
-  data = request.get_json()
-  nome = data.get('nome')
-  proprietario_id = data.get('proprietario_id')
-  print(id)
-  try:
-    return jsonify(
-        PropriedadeService().atualizar_propriedade(
-            id, nome, proprietario_id).to_dict()
-    ), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def detalhar_propriedade(
+    id: UUID, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Obtém informações detalhadas de uma propriedade, incluindo usuários associados (Apenas Super Admin).
+    """
+    try:
+        return PropriedadeService.detalhar_propriedade(db, str(id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
+def adicionar_usuario(
+    propriedade_id: UUID,
+    usuario_id: UUID,
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Associa um usuário existente a uma propriedade (Apenas Super Admin).
+    """
+    try:
+        return PropriedadeService.adicionar_usuario(db, str(propriedade_id), str(usuario_id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.PROPRIEDADE_LISTAR)
-def detalhar_propriedade(id):
-  try:
-    return jsonify(
-        PropriedadeService().detalhar_propriedade(id).to_dict()), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-
-
-@login_required
-@permission_required(PermissionEnum.PROPRIEDADE_EDITAR)
-def adicionar_usuario():
-  data = request.get_json()
-  id_propriedade = data.get('propriedade_id')
-  id_usuario = data.get('usuario_id')
-  try:
-    return jsonify(
-        PropriedadeService().adicionar_usuario(id_propriedade,
-                                               id_usuario).to_dict()
-    ), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-
-@login_required
-@permission_required(PermissionEnum.PROPRIEDADE_EDITAR)
-def remover_usuario():
-  data = request.get_json()
-  id_propriedade = data.get('propriedade_id')
-  id_usuario = data.get('usuario_id')
-  try:
-    return jsonify(
-        PropriedadeService().remover_usuario(id_propriedade,
-                                             id_usuario).to_dict()
-    ), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-
-
+def remover_usuario(
+    propriedade_id: UUID,
+    usuario_id: UUID,
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Remove a associação de um usuário com uma propriedade (Apenas Super Admin).
+    """
+    try:
+        return PropriedadeService.remover_usuario(db, str(propriedade_id), str(usuario_id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)

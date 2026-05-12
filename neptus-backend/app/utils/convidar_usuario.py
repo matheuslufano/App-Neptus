@@ -1,17 +1,9 @@
-import random
-import string
-from flask_mail import Message
-from app import mail
 from app.config.app_config import APP_CONFIG
+from app.utils.email_utils import send_email
 
 def enviar_convite(email_destino, token_convite, nome_propriedade=None, usuario_request=None, nome=None):
-    msg = Message(
-        subject='Neptus • Convite de acesso',
-        sender=("Neptus - Suporte", "neptus@cloudsyntax.com.br"),
-        recipients=[email_destino]
-    )
-
-    msg.html = f"""
+    subject = 'Neptus • Convite de acesso'
+    html_content = f"""
         <html>
         <body style="font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 20px;">
             <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1);">
@@ -38,8 +30,4 @@ def enviar_convite(email_destino, token_convite, nome_propriedade=None, usuario_
         </body>
         </html>
     """
-    mail.send(msg)
-
-
-  
-  
+    send_email(subject, email_destino, html_content)

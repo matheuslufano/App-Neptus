@@ -1,27 +1,26 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
-from sqlalchemy.dialects.postgresql import UUID
-from app import db
-from sqlalchemy.dialects.postgresql import ARRAY
+from app.database import db
 
 
 class Perfil(db.Model):
   __tablename__ = 'perfil'
-  id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-  nome = db.Column(db.String(50), unique=False, nullable=False)
-  permissoes = db.Column(ARRAY(db.String), nullable=False, default=[])
-  usuarios = db.relationship('Usuario', back_populates='perfil')
-  criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+  id = db.Column(db.Uuid, primary_key=True, default=uuid.uuid4)
+  nome = db.Column(db.String(50), unique=True, nullable=False)
+  permissoes = db.Column(db.JSON, nullable=False, default=[])
+  usuarios = db.relationship('Usuario', back_populates='perfil', lazy='selectin')
+  criado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
   atualizado_em = db.Column(db.DateTime,
-                         default=datetime.utcnow,
-                         onupdate=datetime.utcnow)
+                         default=lambda: datetime.now(timezone.utc),
+                         onupdate=lambda: datetime.now(timezone.utc))
 
   def to_dict(self):
     return {
-        "id": self.id,
+        "id": str(self.id),
         "nome": self.nome,
         "permissoes": self.permissoes,
-        "usuarios": len(self.usuarios),
-        "criado_em": self.criado_em.strftime('%d/%m/%Y %H:%M:%S'),
-        "atualizado_em": self.atualizado_em.strftime('%d/%m/%Y %H:%M:%S'),
+        "usuarios_count": len(self.usuarios),
+        "criado_em": self.criado_em.isoformat() if self.criado_em else None,
+        "atualizado_em": self.atualizado_em.isoformat() if self.atualizado_em else None,
     }
+

@@ -1,6 +1,4 @@
-from app.routes.client_routes import register_client_routes
-from app.routes.super_routes import register_super_routes
-
-def register_routes(app):
-    register_super_routes(app)
-    register_client_routes(app)
+﻿from .auth_router import router as auth_router
+from .leitura_router import router as leitura_router
+from .propriedade_router import router as propriedade_router
+from .super_router import router as super_router

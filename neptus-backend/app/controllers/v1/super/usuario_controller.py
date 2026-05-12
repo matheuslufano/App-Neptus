@@ -1,67 +1,90 @@
-from flask import request, jsonify
-from app import db
-from app.exceptions import BadRequestError, ConflictRequestError, NotFoundRequestError
-from app.exceptions.app_request_Exception import AppRequestError
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.utils.auth import get_current_user, get_admin_user
 from app.models.usuario_model import Usuario
-from app.models.perfil_model import Perfil
-from app.utils.permissoes import permission_required, login_required
-from app.enum.PermissionEnum import PermissionEnum
 from app.services.usuario_service import UsuarioService
+from app.schemas.usuario_schema import Usuario as UsuarioSchema, UsuarioCreate, UsuarioUpdate
+from app.exceptions.app_request_Exception import AppRequestError
+from uuid import UUID
+from typing import Optional
 
+def salvar_usuario(
+    data: UsuarioCreate, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Cria um novo usuário manualmente (Apenas Super Admin).
+    """
+    try:
+        return UsuarioService.registrar_usuario(db, data.nome, data.email, data.senha, str(data.perfil_id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-def salvar_usuario():
-  data = request.get_json()
-  try:
-    nome = data.get('nome')
-    email = data.get('email')
-    senha = data.get('senha')
-    perfil_id = data.get('perfil_id')
-    return jsonify(
-        UsuarioService.registrar_usuario(nome, email, senha, perfil_id).to_dict()
-    ), 201
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def listar_usuarios(
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user),
+    page: int = 1, 
+    per_page: int = 10
+):
+    """
+    Lista todos os usuários do sistema com paginação (Apenas Super Admin).
+    """
+    try:
+        return UsuarioService.listar_usuarios(db, page, per_page)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.USUARIO_LISTAR)
-def listar_usuarios():
-  page = request.args.get('pagina_atual', 1, type=int)
-  per_page = request.args.get('itens_por_pagina', 10, type=int)
-  return jsonify(UsuarioService.listar_usuarios(page, per_page)), 200
+def atualizar_usuario(
+    id: UUID, 
+    data: UsuarioUpdate, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Atualiza os dados de um usuário específico (Apenas Super Admin).
+    """
+    try:
+        return UsuarioService.atualizar_usuario(db, str(id), data.nome, data.email, str(data.perfil_id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.USUARIO_EDITAR)
-def atualizar_usuario(id):
-  data = request.get_json()
-  try:
-    nome = data.get('nome')
-    email = data.get('email')
-    perfil_id = data.get('perfil_id')
-    return jsonify(
-        UsuarioService.atualizar_usuario(id, nome, email,
-                                         perfil_id).to_dict()
-    ), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def status_usuario(
+    id: UUID, 
+    status_val: bool, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Ativa ou desativa um usuário (Apenas Super Admin).
+    """
+    try:
+        return UsuarioService.status_usuario(db, str(id), status_val)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
+def buscar_usuario(
+    id: UUID, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Busca os detalhes de um usuário pelo seu ID (Apenas Super Admin).
+    """
+    try:
+        return UsuarioService.buscar_usuario(db, str(id))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-@login_required
-@permission_required(PermissionEnum.USUARIO_EDITAR)
-def status_usuario(id):
-  data = request.get_json()
-  status = data.get('status')
-  try:
-    return jsonify(UsuarioService.status_usuario(id, status)), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-@login_required
-@permission_required(PermissionEnum.USUARIO_DETALHAR)
-def buscar_usuario(id):
-  try:
-    return jsonify(UsuarioService.buscar_usuario(id).to_dict()), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-def relatorio_usuarios():
-  return jsonify(UsuarioService.relatorio_usuarios()), 200
+def relatorio_usuarios(
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Gera um relatório detalhado de todos os usuários (Apenas Super Admin).
+    """
+    try:
+        return UsuarioService.relatorio_usuarios(db)
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)

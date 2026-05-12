@@ -1,47 +1,44 @@
-from flask import request, jsonify
-from app.exceptions.app_request_Exception import AppRequestError
+from fastapi import Depends, HTTPException, Body
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.utils.auth import get_current_user
+from app.models.usuario_model import Usuario
 from app.services.propriedade_service import PropriedadeService
-from app.utils.permissoes import login_required
+from app.exceptions.app_request_Exception import AppRequestError
+from uuid import UUID
 
+def convidar_usuario(
+    propriedade_id: UUID = Body(..., embed=True),
+    email: str = Body(...),
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Convida um novo usuário para uma propriedade.
+    
+    Envia um convite por email para que o usuário possa se associar à propriedade especificada.
+    """
+    try:
+        # Note: We need to implement this in PropriedadeService
+        return {"mensagem": PropriedadeService.convidar_usuario(db, str(propriedade_id), email, current_user)}
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except AttributeError:
+        raise HTTPException(status_code=501, detail="Funcionalidade de convite não implementada no serviço.")
 
-##########################################################
-###                                                    ###
-###Esta é uma rota de acesso vinculada ao perfil local.###
-###                                                    ###
-##########################################################
-
-
-@login_required
-def convidar_usuario():
-  data = request.get_json()
-  id_propriedade = data.get('propriedade_id')
-  email = data.get('email')
-  try:
-    return jsonify({
-        'mensagem':
-        PropriedadeService().convidar_usuario(id_propriedade, email)
-    }), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-
-
-def convite_aceito():
-  data = request.get_json()
-  token_convite = data.get('token_convite')
-  try:
-    return jsonify({
-        'mensagem':
-        PropriedadeService().convite_aceito(token_convite)
-    }), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
-
-
-@login_required
-def listar_leituras_usuarios():
-  try:
-    leituras = PropriedadeService().listar_leituras_usuarios()
-    return jsonify(leituras), 200
-  except AppRequestError as e:
-    return jsonify(e.to_dict()), e.status_code
+def convite_aceito(
+    token_convite: str = Body(..., embed=True),
+    db: Session = Depends(get_db)
+):
+    """
+    Processa a aceitação de um convite de propriedade.
+    
+    Valida o token de convite e associa o usuário à propriedade correspondente.
+    """
+    try:
+        # Note: We need to implement this in PropriedadeService
+        return {"mensagem": PropriedadeService.convite_aceito(db, token_convite)}
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except AttributeError:
+        raise HTTPException(status_code=501, detail="Funcionalidade de aceite de convite não implementada no serviço.")

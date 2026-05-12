@@ -1,57 +1,94 @@
-from app.utils.permissoes import login_required
-from flask import request, jsonify
-
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.utils.auth import get_current_user
+from app.models.usuario_model import Usuario
 from app.services.leitura_service import LeituraService
+from app.schemas.leitura_schema import Leitura, LeituraCreate, LeituraUpdate
 from app.exceptions.app_request_Exception import AppRequestError
+from uuid import UUID
 
-@login_required
-def listar_leituras(page=1, per_page=50):
-    try:
-        page = request.args.get('pagina_atual', 1, type=int)
-        per_page = request.args.get('itens_por_pagina', 50, type=int)
-        tanque_id = request.args.get('tanque_id') 
-        print(tanque_id)
-        return LeituraService.listar_todas_leituras(tanque_id, page, per_page)
-    except AppRequestError as e:
-        raise e
+def listar_leituras(
+    tanque_id: UUID, 
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_user),
+    page: int = 1, 
+    per_page: int = 20
+):
+    """
+    Lista todas as leituras de um tanque específico com suporte a paginação.
     
-@login_required
-def buscar_leitura(leitura_id):
+    Retorna uma lista de leituras contendo dados de sensores como turbidez, oxigênio, etc.
+    """
     try:
-        return LeituraService.buscar_leitura_por_id(leitura_id)
+        return LeituraService.listar_todas_leituras(db, tanque_id, page, per_page)
     except AppRequestError as e:
-            raise e
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     
-@login_required    
-def criar_leitura(): # USUARIO ID VAI VIR DO CONTEXTO FLASK (G)
-    data = request.get_json()
-    tanque_id = data.get('tanque_id')
-    turbidez = data.get('turbidez')
-    oxigenio = data.get('oxigenio')
-    temperatura = data.get('temperatura')
-    ph = data.get('ph')
-    amonia = data.get('amonia')
-    imagem_cor = data.get('imagem_cor')
+def buscar_leitura(
+    leitura_id: UUID, 
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Busca os detalhes de uma leitura específica através do seu ID.
+    """
     try:
-        return LeituraService.criar_leitura(tanque_id, turbidez, oxigenio, temperatura, ph, amonia, imagem_cor), 201
+        return LeituraService.buscar_leitura_por_id(db, leitura_id)
     except AppRequestError as e:
-        raise e
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     
-@login_required
-def atualizar_leitura(leitura_id, valor):
-    try:
-        return LeituraService.atualizar_leitura( leitura_id, valor)
-    except AppRequestError as e:
-        raise e
+def criar_leitura(
+    data: LeituraCreate, 
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Cria uma nova leitura de sensores para um tanque.
     
-@login_required
-def deletar_leitura(leitura_id):
+    Recebe os valores de turbidez, oxigênio, temperatura, ph, amônia e cor da água.
+    """
     try:
-        return LeituraService.deletar_leitura(leitura_id)
+        return LeituraService.criar_leitura(
+            db, 
+            current_user.id, 
+            data.tanque_id, 
+            data.turbidez, 
+            data.oxigenio, 
+            data.temperatura, 
+            data.ph, 
+            data.amonia, 
+            data.cor_agua
+        )
     except AppRequestError as e:
-        raise e
-
-@login_required
-def criar_leituras_em_lote():
-    data = request.get_json()
-    return LeituraService.criar_leituras_em_lote(data)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    
+def atualizar_leitura(
+    leitura_id: UUID, 
+    data: LeituraUpdate, 
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Atualiza os dados de uma leitura existente.
+    
+    Permite alterar qualquer um dos campos da leitura através do seu ID.
+    """
+    try:
+        return LeituraService.atualizar_leitura(db, leitura_id, data.model_dump(exclude_unset=True))
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    
+def deletar_leitura(
+    leitura_id: UUID, 
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Remove uma leitura do sistema.
+    """
+    try:
+        LeituraService.deletar_leitura(db, leitura_id)
+        return {"message": "Leitura deletada com sucesso"}
+    except AppRequestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)

@@ -1,131 +1,113 @@
-from sqlalchemy import or_
-from app.exceptions import (BadRequestError, ConflictRequestError,
-                            NotFoundRequestError)
-from app import db
+from sqlalchemy.orm import Session
+from app.exceptions import (BadRequestError, ConflictRequestError, NotFoundRequestError)
 from app.models.perfil_model import Perfil
 from app.models.propriedade_model import Propriedade
 from app.models.usuario_model import Usuario
-from flask import g
+from app.utils.pagination import paginate
+
 class PropriedadeService:
+    @staticmethod
+    def cadastrar_propriedade(db: Session, nome: str, proprietario_id: str):
+        if not nome or not proprietario_id:
+            raise BadRequestError("Os campos 'nome' e 'proprietario_id' devem ser preenchidos")
+            
+        propriedade = db.query(Propriedade).filter(Propriedade.nome == nome).first()
+        if propriedade:
+            raise ConflictRequestError("Propriedade com mesmo nome já cadastrada")
+        
+        usuario = db.query(Usuario).filter(Usuario.id == proprietario_id).first()
+        if not usuario:
+            raise NotFoundRequestError("Usuário não encontrado")
 
-  def cadastrar_propriedade(self, nome: str, proprietario_id: str):
-    self.__verificar_dados(nome, proprietario_id)
-    propriedade = Propriedade.query.filter_by(nome=nome).first()
-    if propriedade:
-      raise ConflictRequestError("Propriedade com mesmo nome já cadastrada")
-    usuario = Usuario.query.get(proprietario_id)
-    print(proprietario_id)
-    print(usuario)
-    if not usuario:
-      raise NotFoundRequestError("Usuário não encontrado")
+        propriedade = Propriedade(nome=nome, proprietario_id=proprietario_id)
+        propriedade.usuarios.append(usuario)
+        db.add(propriedade)
+        db.commit()
+        db.refresh(propriedade)
+        return propriedade.to_dict()
 
-    propriedade = Propriedade()
-    propriedade.nome = nome
-    propriedade.proprietario_id = proprietario_id
-    propriedade.usuarios.append(usuario)
-    db.session.add(propriedade)
-    db.session.commit()
-    return propriedade
+    @staticmethod
+    def listar_propriedades(db: Session, page: int, per_page: int):
+        query = db.query(Propriedade).order_by(Propriedade.criado_em)
+        paginated = paginate(query, page, per_page)
+        
+        return {
+            'total': paginated['total'],
+            'pagina_atual': paginated['pagina_atual'],
+            'itens_por_pagina': paginated['itens_por_pagina'],
+            'total_paginas': paginated['total_paginas'],
+            'propriedades': [item.to_dict() for item in paginated['items']]
+        }
 
-  def listar_propriedades(self, page, per_page):
-    if per_page > 50:
-      per_page = 50
-    propriedade = Propriedade.query.order_by(Propriedade.criado_em).paginate(
-        page=page, per_page=per_page, error_out=False)
-    return {
-        'total': propriedade.total,
-        'pagina_atual': propriedade.page,
-        'itens_por_pagina': propriedade.per_page,
-        'total_paginas': propriedade.pages,
-        'propriedades': [propriedade.propriedades_to_dict() for propriedade in propriedade]
-    }
+    @staticmethod
+    def atualizar_propriedade(db: Session, id: str, nome: str, proprietario_id: str):
+        if not nome or not proprietario_id:
+            raise BadRequestError("Os campos 'nome' e 'proprietario_id' devem ser preenchidos")
 
-  def atualizar_propriedade(self, id: str, nome: str, proprietario_id):
-    if (not nome) or (not proprietario_id):
-        raise BadRequestError("Os campos 'nome' e 'proprietario_id' devem ser preenchidos")
+        propriedade = db.query(Propriedade).filter(Propriedade.id == id).first()
+        if not propriedade:
+            raise NotFoundRequestError("Propriedade não encontrada")
 
-    propriedade = self.__propriedade_existe(id)
+        nome_existente = db.query(Propriedade).filter(Propriedade.nome == nome).first()
+        if nome_existente and str(nome_existente.id) != str(propriedade.id):
+            raise ConflictRequestError("Propriedade com mesmo nome já cadastrada")
 
-    nome_existente = Propriedade.query.filter_by(nome=nome).first()
-    if nome_existente and nome_existente.id != propriedade.id:
-        raise ConflictRequestError("Propriedade com mesmo nome já cadastrada")
+        usuario = db.query(Usuario).filter(Usuario.id == proprietario_id).first()
+        if not usuario:
+            raise NotFoundRequestError("Proprietário não encontrado")
+        
+        if str(usuario.id) != str(propriedade.proprietario_id):
+            usuario_antigo = db.query(Usuario).filter(Usuario.id == propriedade.proprietario_id).first()
+            propriedade.proprietario_id = usuario.id
+            if usuario not in propriedade.usuarios:
+                propriedade.usuarios.append(usuario)
+                if usuario_antigo and usuario_antigo in propriedade.usuarios:
+                    propriedade.usuarios.remove(usuario_antigo)
 
-    usuario = Usuario.query.get(proprietario_id)
-    if not usuario:
-        raise NotFoundRequestError("Proprietário não encontrado")
-    
-    if usuario.id != propriedade.proprietario_id:
-        usuario_antigo = Usuario.query.get(propriedade.proprietario_id)
-        propriedade.proprietario_id = usuario.id
+        propriedade.nome = nome
+        db.commit()
+        db.refresh(propriedade)
+        return propriedade.to_dict()
+
+    @staticmethod
+    def detalhar_propriedade(db: Session, id: str):
+        propriedade = db.query(Propriedade).filter(Propriedade.id == id).first()
+        if not propriedade:
+            raise NotFoundRequestError("Propriedade não encontrada")
+        return propriedade.to_dict()
+
+    @staticmethod
+    def adicionar_usuario(db: Session, id: str, usuario_id: str):
+        propriedade = db.query(Propriedade).filter(Propriedade.id == id).first()
+        if not propriedade:
+            raise NotFoundRequestError("Propriedade não encontrada")
+            
+        usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+        if not usuario:
+            raise NotFoundRequestError("Usuário não encontrado")
+            
+        if usuario in propriedade.usuarios:
+            raise ConflictRequestError("Usuário ja cadastrado na propriedade")
+            
+        propriedade.usuarios.append(usuario)
+        db.commit()
+        db.refresh(propriedade)
+        return propriedade.to_dict()
+
+    @staticmethod
+    def remover_usuario(db: Session, id: str, usuario_id: str):
+        propriedade = db.query(Propriedade).filter(Propriedade.id == id).first()
+        if not propriedade:
+            raise NotFoundRequestError("Propriedade não encontrada")
+            
+        usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+        if not usuario:
+            raise NotFoundRequestError("Usuário não encontrado")
+            
         if usuario not in propriedade.usuarios:
-            propriedade.usuarios.append(usuario)
-            propriedade.usuarios.remove(usuario_antigo)
+            raise ConflictRequestError("Usuário não cadastrado na propriedade")
 
-    propriedade.nome = nome
-    db.session.commit()
-    return propriedade
-
-  def detalhar_propriedade(self, id: str):
-    propriedade = Propriedade.query.get(id)
-    if not propriedade:
-      raise NotFoundRequestError("Propriedade não encontrada")
-    return propriedade
-
-  def adicionar_usuario(self, id: str, usuario_id: str):
-    propriedade = self.__propriedade_existe(id)
-    usuario = self.__usuario_existe(usuario_id)
-    if usuario in propriedade.usuarios:
-      raise ConflictRequestError("Usuário ja cadastrado na propriedade")
-    propriedade.usuarios.append(usuario)
-    db.session.commit()
-    return propriedade
-
-  def remover_usuario(self, id: str, usuario_id: str):
-    propriedade = self.__propriedade_existe(id)
-    usuario = self.__usuario_existe(usuario_id)
-    if usuario not in propriedade.usuarios:
-      raise ConflictRequestError("Usuário não cadastrado na propriedade")
-
-    propriedade.usuarios.remove(usuario)
-    db.session.commit()
-    return propriedade
-  
-
-
-  def listar_leituras_usuarios(self):
-
-    usuario_id = str(g.usuario.id) 
-    print(usuario_id)
-    propriedades = Propriedade.query.filter(
-    or_(
-        Propriedade.proprietario_id == usuario_id,
-        Propriedade.usuarios.any(Usuario.id == usuario_id)
-    )
-    ).all()
-    return [propriedade.propriedades_to_dict() for propriedade in propriedades]
-  # ------------------
-  # METODOS AUXILIARES
-  # ------------------
-
-  def __verificar_dados(self, nome, proprietario_id):
-    if (not nome) or (not proprietario_id):
-      raise BadRequestError(
-          "Os campos 'nome' e 'proprietario_id' devem ser preenchidos")
-
-  def __usuario_existe(self, usuario_id):
-    usuario = Usuario.query.get(usuario_id)
-    if not usuario:
-      raise NotFoundRequestError("Usuário nao encontrado")
-    return usuario
-
-  def __propriedade_existe(self, id):
-    propriedade = Propriedade.query.get(id)
-    if not propriedade:
-      raise NotFoundRequestError("Propriedade nao encontrada")
-    return propriedade
-
-  def __get__perfil(self, id):
-    perfil = Perfil.query.get(id)
-    if not perfil:
-      raise NotFoundRequestError("Perfil não encontrado")
-    return perfil
+        propriedade.usuarios.remove(usuario)
+        db.commit()
+        db.refresh(propriedade)
+        return propriedade

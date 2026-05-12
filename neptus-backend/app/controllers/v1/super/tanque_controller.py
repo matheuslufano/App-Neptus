@@ -1,83 +1,91 @@
-from flask import request, jsonify
-from app.enum.PermissionEnum import PermissionEnum
-from app.exceptions.app_request_Exception import AppRequestError
+from fastapi import Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.utils.auth import get_current_user, get_admin_user
+from app.models.usuario_model import Usuario
 from app.services.tanque_services import TanqueService
-from app.utils.permissoes import login_required, permission_required
+from app.schemas.tanque_schema import Tanque, TanqueCreate, TanqueUpdate
+from app.exceptions.app_request_Exception import AppRequestError
+from uuid import UUID
 
-
-@login_required
-@permission_required(PermissionEnum.TANQUE_CRIAR)
-def cadastrar_tanque():    
-    data = request.get_json()
+def cadastrar_tanque(
+    data: TanqueCreate, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Cadastra um novo tanque em uma propriedade (Apenas Super Admin).
+    """
     try:
-        nome = data.get('nome')
-        id_propriedade = data.get('id_propriedade')
-        area_tanque = data.get('area_tanque')
-        tipo_peixe = data.get('tipo_peixe')
-        peso_peixe = data.get('peso_peixe')
-        qtd_peixe = data.get('qtd_peixe')
-
-        tanque = TanqueService().cadastrar_tanque(
-            nome=nome,
-            id_propriedade=id_propriedade,
-            area_tanque=area_tanque,
-            tipo_peixe=tipo_peixe,
-            peso_peixe=peso_peixe,
-            qtd_peixe=qtd_peixe
+        return TanqueService.cadastrar_tanque(
+            db=db,
+            usuario_id=str(admin.id),
+            nome=data.nome,
+            id_propriedade=str(data.id_propriedade),
+            area_tanque=data.area_tanque,
+            tipo_peixe=data.tipo_peixe,
+            peso_peixe=data.peso_peixe,
+            qtd_peixe=data.qtd_peixe
         )
-
-        return jsonify(tanque), 201
-
     except AppRequestError as e:
-        return jsonify(e.to_dict()), e.status_code
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-
-@login_required
-@permission_required(PermissionEnum.TANQUE_LISTAR)
-def listar_tanques(id_propriedade):
-    """Lista tanques de uma propriedade específica (via query string)."""
-    page = request.args.get('pagina_atual', 1, type=int)
-    per_page = request.args.get('itens_por_pagina', 50, type=int)
+def listar_tanques(
+    id_propriedade: UUID = Query(...),
+    page: int = 1, 
+    per_page: int = 10,
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Lista todos os tanques de uma propriedade específica (Apenas Super Admin).
+    """
     try:
-        resultado = TanqueService().listar_tanques(id_propriedade, page, per_page)
-        return jsonify(resultado), 200
+        return TanqueService.listar_tanques(db, str(id_propriedade), page, per_page)
     except AppRequestError as e:
-        return jsonify(e.to_dict()), e.status_code
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-
-@login_required
-@permission_required(PermissionEnum.TANQUE_LISTAR)
-def exibir_tanque(id):    
+def detalhar_tanque(
+    id: UUID, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Obtém os detalhes de um tanque específico pelo seu ID (Apenas Super Admin).
+    """
     try:
-        tanque = TanqueService().exibir_tanque(id)
-        return jsonify(tanque), 200
+        return TanqueService.exibir_tanque(db, str(id))
     except AppRequestError as e:
-        return jsonify(e.to_dict()), e.status_code
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-
-@login_required
-@permission_required(PermissionEnum.TANQUE_EDITAR)
-def atualizar_tanque(id):    
-    data = request.get_json()
+def atualizar_tanque(
+    id: UUID, 
+    data: TanqueUpdate, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Atualiza as informações de um tanque (Apenas Super Admin).
+    """
     try:
-        tanque = TanqueService().atualizar_tanque(id, data)
-        return jsonify(tanque.to_dict()), 200
+        return TanqueService.atualizar_tanque(db, str(id), data.model_dump(exclude_unset=True))
     except AppRequestError as e:
-        return jsonify(e.to_dict()), e.status_code
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
-
-@login_required
-@permission_required(PermissionEnum.TANQUE_EDITAR)
-def status_tanque(id):
+def status_tanque(
+    id: UUID, 
+    db: Session = Depends(get_db), 
+    admin: Usuario = Depends(get_admin_user)
+):
+    """
+    Alterna o status (ativo/inativo) de um tanque (Apenas Super Admin).
+    """
     try:
-        tanque = TanqueService().status_tanque(id)
-
-        status = "ativado" if tanque["ativo"] else "desativado"
-
-        return jsonify({
-            "mensagem": f"Tanque '{tanque['nome']}' {status} com sucesso.",
+        tanque = TanqueService.status_tanque(db, str(id))
+        status_str = "ativado" if tanque['ativo'] else "desativado"
+        return {
+            "mensagem": f"Tanque '{tanque['nome']}' {status_str} com sucesso.",
             "tanque": tanque
-        }), 200
-    
+        }
     except AppRequestError as e:
-        return jsonify(e.to_dict()), e.status_code
+        raise HTTPException(status_code=e.status_code, detail=e.message)

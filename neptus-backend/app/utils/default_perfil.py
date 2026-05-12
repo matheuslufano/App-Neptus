@@ -1,9 +1,8 @@
-
-from app import db
+from sqlalchemy.orm import Session
 from app.models.perfil_model import Perfil
 
-def get_default_perfil():
-    perfil = db.session.query(Perfil).filter(Perfil.nome == "USUARIO").first()
+def get_default_perfil(db: Session):
+    perfil = db.query(Perfil).filter(Perfil.nome == "USUARIO").first()
 
     if not perfil:
         perfil = Perfil(
@@ -30,7 +29,10 @@ def get_default_perfil():
                 "leitura_excluir"
             ]
         )
-        db.session.add(perfil)
-        db.session.commit()
+        db.add(perfil)
+        db.commit()
+        db.refresh(perfil)
+
+    return perfil
 
     return perfil

@@ -1,17 +1,11 @@
 import random
 import string
-from flask_mail import Message
-from app import mail
 from app.config.app_config import APP_CONFIG
+from app.utils.email_utils import send_email
 
 def enviar_senha(email_destino, token_reset, nome=None):
-    msg = Message(
-        subject='Neptus • Sua nova senha',
-        sender=("Neptus - Suporte", "neptus@cloudsyntax.com.br"),
-        recipients=[email_destino]
-    )
-
-    msg.html = f"""
+    subject = 'Neptus • Sua nova senha'
+    html_content = f"""
     <html>
       <body style="font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 20px;">
         <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1);">
@@ -26,23 +20,20 @@ def enviar_senha(email_destino, token_reset, nome=None):
           </div>
           <p style="font-size: 14px; color: #555;">
             <p>Caso não consiga acessar o link acima, copie e cole o link abaixo no seu navegador:</p>
-            <a href="{APP_CONFIG.NEPTUS_URL}/redefinir-senha?token={token_reset}" style="color: #0d6efd; text-decoration: none; nowrap;">{APP_CONFIG.NEPTUS_URL}/redefinir-senha?token={token_reset}</a>
+            <a href="{APP_CONFIG.NEPTUS_URL}/redefinir-senha?token={token_reset}" style="color: #0d6efd; text-decoration: none;">{APP_CONFIG.NEPTUS_URL}/redefinir-senha?token={token_reset}</a>
           </p>
           <hr style="margin-top: 30px;">
           <p style="font-size: 12px; color: #aaa; text-align: center;">
             <strong>Neptus</strong><br>
-            <p>Caso vocé tenha recebido este e-mail por engano, por favor, ignore-o.</p>
+            <p>Caso você tenha recebido este e-mail por engano, por favor, ignore-o.</p>
             Este e-mail foi enviado automaticamente pela plataforma <strong>Neptus</strong>. Por favor, não responda.
           </p>
         </div>
       </body>
     </html>
     """
-    mail.send(msg)
+    send_email(subject, email_destino, html_content)
         
 def gerar_nova_senha(tamanho=10):
-  caracteres = string.ascii_letters + string.digits
-  return ''.join(random.choices(caracteres, k=tamanho))
-
-  
-  
+    caracteres = string.ascii_letters + string.digits
+    return ''.join(random.choices(caracteres, k=tamanho))

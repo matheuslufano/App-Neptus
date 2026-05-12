@@ -2,44 +2,82 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # === Virtual Environments ===
 venv/
 env/
+ENV/
+env.bak/
+venv.bak/
 .venv/
-.env/
-.env.*
 
-# === Flask ===
-instance/
-*.log
-*.pot
-.cache/
-__pypackages__/
+# === Environment Variables ===
+.env
+.env.test
+.env.dev
+.env.prod
+.env.*
 
 # === VSCode ===
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
 
-# === PyCharm ===
+# === IDEs (PyCharm, IntelliJ) ===
 .idea/
 *.iml
+*.iws
 
-# === Pytest ===
+# === Pytest / Testing ===
 .cache/
 .pytest_cache/
-
-# === Coverage ===
-htmlcov/
+.tox/
+.nox/
 .coverage
+.coverage.*
+.cache
+nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
+htmlcov/
+.hypothesis/
 
-# === Distribuição / build ===
-build/
-dist/
-*.egg-info/
-
-# === Arquivos do sistema ===
+# === System Files ===
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# === Logs ===
+*.log
+logs/
+
+# === Database ===
+*.sqlite3
+*.db
+
+# === Assistant / Gemini ===
+.gemini/
