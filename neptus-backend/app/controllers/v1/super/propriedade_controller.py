@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.utils.auth import get_current_user, get_admin_user
+from app.utils.auth import get_admin_user
 from app.models.usuario_model import Usuario
 from app.services.propriedade_service import PropriedadeService
 from app.schemas.propriedade_schema import Propriedade, PropriedadeCreate, PropriedadeUpdate
@@ -17,7 +17,12 @@ def cadastrar_propriedade(
     Cadastra uma nova propriedade e associa a um proprietário (Apenas Super Admin).
     """
     try:
-        return PropriedadeService.cadastrar_propriedade(db, data.nome, str(data.proprietario_id))
+        return PropriedadeService.cadastrar_propriedade(
+            db,
+            data.nome,
+            str(data.proprietario_id),
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -45,7 +50,13 @@ def atualizar_propriedade(
     Atualiza os dados de uma propriedade (Apenas Super Admin).
     """
     try:
-        return PropriedadeService.atualizar_propriedade(db, str(id), data.nome, str(data.proprietario_id))
+        return PropriedadeService.atualizar_propriedade(
+            db,
+            str(id),
+            data.nome,
+            str(data.proprietario_id),
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -72,7 +83,12 @@ def adicionar_usuario(
     Associa um usuário existente a uma propriedade (Apenas Super Admin).
     """
     try:
-        return PropriedadeService.adicionar_usuario(db, str(propriedade_id), str(usuario_id))
+        return PropriedadeService.adicionar_usuario(
+            db,
+            str(propriedade_id),
+            str(usuario_id),
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -86,6 +102,11 @@ def remover_usuario(
     Remove a associação de um usuário com uma propriedade (Apenas Super Admin).
     """
     try:
-        return PropriedadeService.remover_usuario(db, str(propriedade_id), str(usuario_id))
+        return PropriedadeService.remover_usuario(
+            db,
+            str(propriedade_id),
+            str(usuario_id),
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

@@ -3,3 +3,4 @@ from .propriedade_model import Propriedade
 from .tanque_model import Tanque
 from .leitura_model import Leitura
 from .perfil_model import Perfil
+from .audit_log_model import AuditLog

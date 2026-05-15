@@ -3,6 +3,7 @@ from app.exceptions import BadRequestError, NotFoundRequestError
 from app.models.leitura_model import Leitura
 from app.models.tanque_model import Tanque
 from app.models.usuario_model import Usuario
+from app.services.audit_service import AuditService
 from app.utils.pagination import paginate
 
 class LeituraService:
@@ -30,7 +31,7 @@ class LeituraService:
         return leitura.to_dict()
 
     @staticmethod
-    def criar_leitura(db: Session, usuario_id, tanque_id, turbidez, oxigenio, temperatura, ph, amonia, cor_agua):
+    def criar_leitura(db: Session, usuario_id, tanque_id, turbidez, oxigenio, temperatura, ph, amonia, cor_agua, performed_by_id: str = None):
         if not turbidez:
             raise BadRequestError("O campo 'turbidez' deve ser preenchido.")
 
@@ -58,27 +59,63 @@ class LeituraService:
         db.add(leitura)
         db.commit()
         db.refresh(leitura)
+
+        AuditService.log_action(
+            db=db,
+            entity_name='Leitura',
+            entity_id=str(leitura.id),
+            operation='create',
+            user_id=performed_by_id,
+            description='Leitura criada',
+            data_before=None,
+            data_after=leitura.to_dict(),
+        )
         return leitura.to_dict()
 
     @staticmethod
-    def atualizar_leitura(db: Session, leitura_id, data):
+    def atualizar_leitura(db: Session, leitura_id, data, performed_by_id: str = None):
         leitura = db.query(Leitura).filter(Leitura.id == leitura_id).first()
         if not leitura:
             raise NotFoundRequestError("Leitura não encontrada.")
         
+        before = leitura.to_dict()
         for key, value in data.items():
             if value is not None:
                 setattr(leitura, key, value)
         
         db.commit()
         db.refresh(leitura)
+
+        AuditService.log_action(
+            db=db,
+            entity_name='Leitura',
+            entity_id=str(leitura.id),
+            operation='update',
+            user_id=performed_by_id,
+            description='Leitura atualizada',
+            data_before=before,
+            data_after=leitura.to_dict(),
+        )
         return leitura.to_dict()
 
     @staticmethod
-    def deletar_leitura(db: Session, leitura_id):
+    def deletar_leitura(db: Session, leitura_id, performed_by_id: str = None):
         leitura = db.query(Leitura).filter(Leitura.id == leitura_id).first()
         if not leitura:
             raise NotFoundRequestError("Leitura não encontrada.")
+
+        before = leitura.to_dict()
         db.delete(leitura)
         db.commit()
+
+        AuditService.log_action(
+            db=db,
+            entity_name='Leitura',
+            entity_id=str(leitura.id),
+            operation='delete',
+            user_id=performed_by_id,
+            description='Leitura excluída',
+            data_before=before,
+            data_after=None,
+        )
         return True

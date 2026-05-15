@@ -58,7 +58,8 @@ def criar_leitura(
             data.temperatura, 
             data.ph, 
             data.amonia, 
-            data.cor_agua
+            data.cor_agua,
+            performed_by_id=str(current_user.id)
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -75,7 +76,12 @@ def atualizar_leitura(
     Permite alterar qualquer um dos campos da leitura através do seu ID.
     """
     try:
-        return LeituraService.atualizar_leitura(db, leitura_id, data.model_dump(exclude_unset=True))
+        return LeituraService.atualizar_leitura(
+            db,
+            leitura_id,
+            data.model_dump(exclude_unset=True),
+            performed_by_id=str(current_user.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     
@@ -88,7 +94,7 @@ def deletar_leitura(
     Remove uma leitura do sistema.
     """
     try:
-        LeituraService.deletar_leitura(db, leitura_id)
+        LeituraService.deletar_leitura(db, leitura_id, performed_by_id=str(current_user.id))
         return {"message": "Leitura deletada com sucesso"}
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

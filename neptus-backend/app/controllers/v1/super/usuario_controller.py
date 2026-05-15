@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.utils.auth import get_current_user, get_admin_user
+from app.utils.auth import get_admin_user
 from app.models.usuario_model import Usuario
 from app.services.usuario_service import UsuarioService
 from app.schemas.usuario_schema import Usuario as UsuarioSchema, UsuarioCreate, UsuarioUpdate
@@ -18,7 +18,14 @@ def salvar_usuario(
     Cria um novo usuário manualmente (Apenas Super Admin).
     """
     try:
-        return UsuarioService.registrar_usuario(db, data.nome, data.email, data.senha, str(data.perfil_id))
+        return UsuarioService.registrar_usuario(
+            db,
+            data.nome,
+            data.email,
+            data.senha,
+            str(data.perfil_id),
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -46,7 +53,14 @@ def atualizar_usuario(
     Atualiza os dados de um usuário específico (Apenas Super Admin).
     """
     try:
-        return UsuarioService.atualizar_usuario(db, str(id), data.nome, data.email, str(data.perfil_id))
+        return UsuarioService.atualizar_usuario(
+            db,
+            str(id),
+            data.nome,
+            data.email,
+            str(data.perfil_id),
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -60,7 +74,12 @@ def status_usuario(
     Ativa ou desativa um usuário (Apenas Super Admin).
     """
     try:
-        return UsuarioService.status_usuario(db, str(id), status_val)
+        return UsuarioService.status_usuario(
+            db,
+            str(id),
+            status_val,
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

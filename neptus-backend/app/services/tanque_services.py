@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.tanque_model import Tanque
 from app.models.propriedade_model import Propriedade
 from app.exceptions import BadRequestError, ConflictRequestError, NotFoundRequestError
+from app.services.audit_service import AuditService
 from app.utils.pagination import paginate
 
 class TanqueService:
@@ -14,7 +15,8 @@ class TanqueService:
         area_tanque: float,
         tipo_peixe: str,
         peso_peixe: float = None,
-        qtd_peixe: int = None
+        qtd_peixe: int = None,
+        performed_by_id: str = None
     ):
         """Cadastra um novo tanque vinculado ao usuário logado e à propriedade informada."""
         if not nome or not nome.strip():
@@ -53,6 +55,17 @@ class TanqueService:
         db.add(novo_tanque)
         db.commit()
         db.refresh(novo_tanque)
+
+        AuditService.log_action(
+            db=db,
+            entity_name='Tanque',
+            entity_id=str(novo_tanque.id),
+            operation='create',
+            user_id=performed_by_id,
+            description='Tanque cadastrado',
+            data_before=None,
+            data_after=novo_tanque.to_dict(),
+        )
         return novo_tanque.to_dict()
     
     @staticmethod
@@ -77,12 +90,13 @@ class TanqueService:
         return tanque.to_dict()
     
     @staticmethod
-    def atualizar_tanque(db: Session, id_tanque, dados: dict):
+    def atualizar_tanque(db: Session, id_tanque, dados: dict, performed_by_id: str = None):
         """Atualiza os dados de um tanque existente."""        
         tanque = db.query(Tanque).filter(Tanque.id == id_tanque).first()
         if not tanque:
             raise NotFoundRequestError("Tanque não encontrado.")
 
+        before = tanque.to_dict()
         campos_permitidos = ['nome', 'area_tanque', 'tipo_peixe', 'peso_peixe', 'qtd_peixe', 'ativo']
 
         for campo in campos_permitidos:
@@ -99,15 +113,38 @@ class TanqueService:
 
         db.commit()
         db.refresh(tanque)
+
+        AuditService.log_action(
+            db=db,
+            entity_name='Tanque',
+            entity_id=str(tanque.id),
+            operation='update',
+            user_id=performed_by_id,
+            description='Tanque atualizado',
+            data_before=before,
+            data_after=tanque.to_dict(),
+        )
         return tanque.to_dict()
     
     @staticmethod
-    def status_tanque(db: Session, id_tanque):
+    def status_tanque(db: Session, id_tanque, performed_by_id: str = None):
         tanque = db.query(Tanque).filter(Tanque.id == id_tanque).first()
         if not tanque:
             raise NotFoundRequestError("Tanque não encontrado.")
 
+        before = tanque.to_dict()
         tanque.ativo = not tanque.ativo
         db.commit()
         db.refresh(tanque)
+
+        AuditService.log_action(
+            db=db,
+            entity_name='Tanque',
+            entity_id=str(tanque.id),
+            operation='update',
+            user_id=performed_by_id,
+            description='Status do tanque alterado',
+            data_before=before,
+            data_after=tanque.to_dict(),
+        )
         return tanque

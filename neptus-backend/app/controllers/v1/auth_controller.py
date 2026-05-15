@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services.auth_service import AuthService
+from app.services.usuario_service import UsuarioService
 from app.schemas.autenticacao_schema import LoginRequest, ResetPasswordRequest, ResetPasswordConfirm
 from app.exceptions.app_request_Exception import AppRequestError
 
@@ -13,7 +14,7 @@ def register(data: dict, db: Session = Depends(get_db)):
     Este endpoint cria uma nova conta de usuário com o nome, email e senha fornecidos.
     """
     try:
-        return AuthService.registrar_usuario(db, **data)
+        return UsuarioService.registrar_usuario(db, **data)
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

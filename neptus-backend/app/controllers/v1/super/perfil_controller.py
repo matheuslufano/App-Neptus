@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.utils.auth import get_current_user, get_admin_user
+from app.utils.auth import get_admin_user
 from app.models.usuario_model import Usuario
 from app.services.perfil_service import PerfilService
 from app.schemas.perfil_schema import Perfil, PerfilCreate, PerfilUpdate
@@ -19,7 +19,12 @@ def salvar_perfil(
     Define o nome do perfil e as permissões associadas.
     """
     try:
-        return PerfilService.criar_perfil(db, data.nome, data.permissoes)
+        return PerfilService.criar_perfil(
+            db,
+            data.nome,
+            data.permissoes,
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -47,7 +52,13 @@ def atualizar_perfil(
     Atualiza as informações de um perfil existente (Apenas Super Admin).
     """
     try:
-        return PerfilService.atualizar_perfil(db, str(id), data.nome, data.permissoes)
+        return PerfilService.atualizar_perfil(
+            db,
+            str(id),
+            data.nome,
+            data.permissoes,
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -62,7 +73,11 @@ def deletar_perfil(
     Observação: Perfis associados a usuários podem ter restrições de exclusão.
     """
     try:
-        message = PerfilService.deletar_perfil(db, str(id))
+        message = PerfilService.deletar_perfil(
+            db,
+            str(id),
+            performed_by_id=str(admin.id)
+        )
         return {"mensagem": message}
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

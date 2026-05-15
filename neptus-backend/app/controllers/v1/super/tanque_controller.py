@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.utils.auth import get_current_user, get_admin_user
+from app.utils.auth import get_admin_user
 from app.models.usuario_model import Usuario
 from app.services.tanque_services import TanqueService
 from app.schemas.tanque_schema import Tanque, TanqueCreate, TanqueUpdate
@@ -25,7 +25,8 @@ def cadastrar_tanque(
             area_tanque=data.area_tanque,
             tipo_peixe=data.tipo_peixe,
             peso_peixe=data.peso_peixe,
-            qtd_peixe=data.qtd_peixe
+            qtd_peixe=data.qtd_peixe,
+            performed_by_id=str(admin.id)
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -68,7 +69,12 @@ def atualizar_tanque(
     Atualiza as informações de um tanque (Apenas Super Admin).
     """
     try:
-        return TanqueService.atualizar_tanque(db, str(id), data.model_dump(exclude_unset=True))
+        return TanqueService.atualizar_tanque(
+            db,
+            str(id),
+            data.model_dump(exclude_unset=True),
+            performed_by_id=str(admin.id)
+        )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -81,7 +87,11 @@ def status_tanque(
     Alterna o status (ativo/inativo) de um tanque (Apenas Super Admin).
     """
     try:
-        tanque = TanqueService.status_tanque(db, str(id))
+        tanque = TanqueService.status_tanque(
+            db,
+            str(id),
+            performed_by_id=str(admin.id)
+        )
         status_str = "ativado" if tanque['ativo'] else "desativado"
         return {
             "mensagem": f"Tanque '{tanque['nome']}' {status_str} com sucesso.",

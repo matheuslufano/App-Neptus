@@ -1,7 +1,16 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import auth_router, leitura_router, propriedade_router, super_router
+from app.routes import (
+    auth_router,
+    leitura_router,
+    propriedade_router,
+    usuario_router,
+    perfil_router,
+    propriedade_super_router,
+    tanque_router,
+    audit_router,
+)
 
 app = FastAPI(
     title="Neptus API",
@@ -22,7 +31,11 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(leitura_router, prefix="/api")
 app.include_router(propriedade_router, prefix="/api")
-app.include_router(super_router, prefix="/api")
+app.include_router(usuario_router, prefix="/api")
+app.include_router(perfil_router, prefix="/api")
+app.include_router(propriedade_super_router, prefix="/api")
+app.include_router(tanque_router, prefix="/api")
+app.include_router(audit_router, prefix="/api")
 
 @app.get("/")
 async def root():
