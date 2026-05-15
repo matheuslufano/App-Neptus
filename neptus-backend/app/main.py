@@ -244,7 +244,7 @@ async def root():
         </div>
     </body>
     </html>
-    \"\"\"
+    """
     return html_content
 
 
