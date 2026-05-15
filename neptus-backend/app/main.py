@@ -64,7 +64,7 @@ async def root():
     
     routes_html = "".join(routes_info)
 
-    html_content = f\"\"\"
+    html_content = f"""
     <!DOCTYPE html>
     <html lang="pt-br">
     <head>
