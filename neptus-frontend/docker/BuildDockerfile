@@ -1,0 +1,26 @@
+FROM node:22.17.1-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci 
+
+RUN npm install
+
+COPY . .
+RUN npm run build 
+
+
+FROM nginx:alpine3.22-slim
+WORKDIR /usr/share/nginx/html
+
+# Criando usuário para não executar como root
+RUN addgroup --gid 1001 --system userapp
+RUN adduser --no-create-home --disabled-password --uid 1001 --system -G "userapp" userapp
+
+
+COPY --from=builder --chown=userapp:userapp /app/.next /usr/share/nginx/html
+COPY --from=builder --chown=userapp:userapp /app/public /usr/share/nginx/html/
+
+USER userapp
+
+EXPOSE 80
+EXPOSE 443
