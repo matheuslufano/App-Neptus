@@ -38,31 +38,74 @@ app.include_router(tanque_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
 
 from fastapi.responses import HTMLResponse
+from collections import defaultdict
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    # Coletar informações das rotas para exibir na página
-    routes_info = []
+    # Agrupar rotas por tags para melhor organização (estilo Swagger)
+    grouped_routes = defaultdict(list)
+    
     for route in app.routes:
         if hasattr(route, "path") and (route.path.startswith("/api") or route.path == "/health"):
-            methods = list(route.methods) if hasattr(route, "methods") else []
-            methods_str = ", ".join(methods)
-            # Simplificar métodos para exibição
-            if "GET" in methods and "POST" in methods:
-                methods_str = "GET/POST"
-            elif "GET" in methods:
-                methods_str = "GET"
-            elif "POST" in methods:
-                methods_str = "POST"
+            # Tentar pegar a tag da rota, ou usar "Geral"
+            tag = "Geral"
+            if hasattr(route, "tags") and route.tags:
+                tag = route.tags[0]
+            elif "/auth" in route.path:
+                tag = "Autenticação"
+            elif "/usuario" in route.path:
+                tag = "Usuários"
+            elif "/propriedade" in route.path:
+                tag = "Propriedades"
+            elif "/leitura" in route.path:
+                tag = "Leituras"
+            elif "/tanque" in route.path:
+                tag = "Tanques"
+            elif "/audit" in route.path:
+                tag = "Auditoria"
                 
-            routes_info.append(f"""
-                <div class="route-card">
-                    <span class="method {methods_str.lower().replace('/', '-')}">{methods_str}</span>
-                    <span class="path">{route.path}</span>
+            methods = list(route.methods) if hasattr(route, "methods") else []
+            description = getattr(route, "summary", "") or getattr(route, "description", "") or "Sem descrição"
+            
+            grouped_routes[tag].append({
+                "methods": methods,
+                "path": route.path,
+                "description": description
+            })
+
+    # Gerar o HTML das tabelas por grupo
+    sections_html = ""
+    for tag, routes in grouped_routes.items():
+        rows = ""
+        for r in routes:
+            methods_badges = "".join([f'<span class="method-badge {m.lower()}">{m}</span>' for m in r["methods"]])
+            rows += f"""
+                <tr>
+                    <td class="col-method">{methods_badges}</td>
+                    <td class="col-path"><code>{r["path"]}</code></td>
+                    <td class="col-desc">{r["description"]}</td>
+                </tr>
+            """
+        
+        sections_html += f"""
+            <div class="section">
+                <h2 class="section-title">{tag}</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Método</th>
+                                <th>Caminho</th>
+                                <th>Descrição</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows}
+                        </tbody>
+                    </table>
                 </div>
-            """)
-    
-    routes_html = "".join(routes_info)
+            </div>
+        """
 
     html_content = f"""
     <!DOCTYPE html>
@@ -70,182 +113,176 @@ async def root():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Neptus API | Dashboard</title>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+        <meta name="description" content="Documentação técnica da Neptus API para consumo humano e por IAs.">
+        <title>Neptus API | Documentação Técnica</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
         <style>
             :root {{
-                --bg: #0f172a;
-                --card-bg: rgba(30, 41, 59, 0.7);
-                --accent: #38bdf8;
-                --text: #f8fafc;
-                --text-muted: #94a3b8;
-                --get: #10b981;
-                --post: #3b82f6;
-                --put: #f59e0b;
-                --delete: #ef4444;
+                --bg: #ffffff;
+                --text: #1a202c;
+                --text-muted: #4a5568;
+                --border: #e2e8f0;
+                --primary: #3182ce;
+                --get: #2f855a;
+                --post: #2b6cb0;
+                --put: #975a16;
+                --delete: #c53030;
+                --code-bg: #f7fafc;
             }}
-            
+
             body {{
                 font-family: 'Inter', sans-serif;
-                background-color: var(--bg);
-                background-image: radial-gradient(circle at top right, #1e293b, #0f172a);
+                background: var(--bg);
                 color: var(--text);
+                line-height: 1.5;
                 margin: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                min-height: 100vh;
                 padding: 40px 20px;
             }}
 
             .container {{
-                max-width: 900px;
-                width: 100%;
-                text-align: center;
+                max-width: 1000px;
+                margin: 0 auto;
             }}
 
-            .glass-card {{
-                background: var(--card-bg);
-                backdrop-filter: blur(12px);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 24px;
-                padding: 40px;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                margin-bottom: 30px;
+            header {{
+                border-bottom: 2px solid var(--border);
+                padding-bottom: 20px;
+                margin-bottom: 40px;
             }}
 
             h1 {{
-                font-size: 3rem;
-                font-weight: 800;
-                margin-bottom: 10px;
-                background: linear-gradient(to right, #38bdf8, #818cf8);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
+                font-size: 2.5rem;
+                font-weight: 700;
+                margin: 0;
+                color: var(--primary);
             }}
 
-            p.subtitle {{
+            .api-info {{
                 color: var(--text-muted);
-                font-size: 1.2rem;
-                margin-bottom: 30px;
-            }}
-
-            .btn-swagger {{
-                display: inline-block;
-                background: var(--accent);
-                color: #0f172a;
-                text-decoration: none;
-                padding: 16px 32px;
-                border-radius: 12px;
-                font-weight: 600;
                 font-size: 1.1rem;
-                transition: all 0.3s ease;
-                box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.4);
+                margin-top: 10px;
             }}
 
-            .btn-swagger:hover {{
-                transform: translateY(-2px);
-                box-shadow: 0 20px 25px -5px rgba(56, 189, 248, 0.5);
-                filter: brightness(1.1);
-            }}
-
-            .endpoints-grid {{
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                gap: 12px;
-                text-align: left;
-                margin-top: 40px;
-            }}
-
-            .route-card {{
-                background: rgba(15, 23, 42, 0.5);
-                border: 1px solid rgba(255, 255, 255, 0.05);
-                padding: 12px 16px;
-                border-radius: 12px;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                transition: background 0.2s;
-            }}
-
-            .route-card:hover {{
-                background: rgba(15, 23, 42, 0.8);
-                border-color: rgba(56, 189, 248, 0.3);
-            }}
-
-            .method {{
-                font-size: 0.7rem;
-                font-weight: 800;
-                padding: 4px 8px;
+            .swagger-link {{
+                display: inline-block;
+                margin-top: 20px;
+                padding: 10px 20px;
+                background: var(--primary);
+                color: white;
+                text-decoration: none;
                 border-radius: 6px;
-                text-transform: uppercase;
-                min-width: 45px;
-                text-align: center;
-            }}
-
-            .method.get {{ background: rgba(16, 185, 129, 0.2); color: var(--get); }}
-            .method.post {{ background: rgba(59, 130, 246, 0.2); color: var(--post); }}
-            .method.get-post {{ background: rgba(139, 92, 246, 0.2); color: #a78bfa; }}
-            
-            .path {{
-                font-family: monospace;
-                font-size: 0.9rem;
-                color: var(--text-muted);
-            }}
-
-            .footer {{
-                margin-top: 40px;
-                color: var(--text-muted);
-                font-size: 0.9rem;
-            }}
-
-            .status-badge {{
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                background: rgba(16, 185, 129, 0.1);
-                color: var(--get);
-                padding: 4px 12px;
-                border-radius: 20px;
-                font-size: 0.8rem;
                 font-weight: 600;
-                margin-bottom: 20px;
             }}
 
-            .status-dot {{
-                width: 8px;
-                height: 8px;
-                background: var(--get);
-                border-radius: 50%;
-                box-shadow: 0 0 8px var(--get);
+            .section {{
+                margin-bottom: 40px;
             }}
+
+            .section-title {{
+                font-size: 1.5rem;
+                border-left: 4px solid var(--primary);
+                padding-left: 15px;
+                margin-bottom: 20px;
+                color: var(--text);
+            }}
+
+            .table-container {{
+                overflow-x: auto;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+            }}
+
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                text-align: left;
+                font-size: 0.95rem;
+            }}
+
+            th {{
+                background: #f8fafc;
+                padding: 12px 16px;
+                font-weight: 600;
+                border-bottom: 2px solid var(--border);
+            }}
+
+            td {{
+                padding: 12px 16px;
+                border-bottom: 1px solid var(--border);
+                vertical-align: middle;
+            }}
+
+            code {{
+                font-family: 'JetBrains Mono', monospace;
+                background: var(--code-bg);
+                padding: 2px 6px;
+                border-radius: 4px;
+                color: #e53e3e;
+            }}
+
+            .method-badge {{
+                font-size: 0.75rem;
+                font-weight: 700;
+                padding: 4px 8px;
+                border-radius: 4px;
+                color: white;
+                margin-right: 4px;
+            }}
+
+            .method-badge.get {{ background: var(--get); }}
+            .method-badge.post {{ background: var(--post); }}
+            .method-badge.put {{ background: var(--put); }}
+            .method-badge.delete {{ background: var(--delete); }}
+
+            .col-method {{ width: 120px; }}
+            .col-path {{ width: 300px; }}
+
+            footer {{
+                margin-top: 60px;
+                text-align: center;
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                border-top: 1px solid var(--border);
+                padding-top: 20px;
+            }}
+
+            /* Estilo para IAs: JSON oculto com estrutura de dados */
+            #ai-data {{ display: none; }}
         </style>
     </head>
     <body>
         <div class="container">
-            <div class="glass-card">
-                <div class="status-badge">
-                    <div class="status-dot"></div>
-                    Sistema Online
-                </div>
-                <h1>Neptus API</h1>
-                <p class="subtitle">Backend oficial do sistema de monitoramento de aquicultura. Explore a documentação interativa abaixo.</p>
-                
-                <a href="/docs" class="btn-swagger">Abrir Documentação Swagger</a>
-            </div>
+            <header>
+                <h1>Neptus API Specification</h1>
+                <div class="api-info">Versão 2.1.0 • Backend de Monitoramento de Aquicultura</div>
+                <p>Esta página fornece uma visão geral estruturada dos endpoints da API, otimizada para legibilidade humana e processamento automatizado.</p>
+                <a href="/docs" class="swagger-link">Acessar Swagger UI Interativo</a>
+            </header>
 
-            <h2 style="font-weight: 600; color: var(--text);">Endpoints Disponíveis</h2>
-            <div class="endpoints-grid">
-                {routes_html}
-            </div>
+            <main>
+                {sections_html}
+            </main>
 
-            <div class="footer">
-                Neptus &copy; 2026 • v2.1.0 • Desenvolvido com FastAPI
-            </div>
+            <footer>
+                © 2026 Neptus System • Gerado automaticamente por FastAPI
+            </footer>
+
+            <!-- Bloco de dados estruturados para leitura por outras IAs -->
+            <script id="ai-data" type="application/json">
+                {{
+                    "api_name": "Neptus API",
+                    "version": "2.1.0",
+                    "base_url": "/",
+                    "swagger_path": "/docs",
+                    "groups": {grouped_routes}
+                }}
+            </script>
         </div>
     </body>
     </html>
     """
     return html_content
+
 
 
 @app.get("/health")
