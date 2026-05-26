@@ -48,7 +48,9 @@ async def login(
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Dados de login inválidos: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=f"Dados de login invalidos: {str(e)}")
 
 def refresh_token(refresh_token: str = Body(..., embed=True)):
     """

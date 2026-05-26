@@ -6,7 +6,7 @@ from app.models.usuario_model import Usuario
 from app.services.usuario_service import UsuarioService
 from app.schemas.usuario_schema import Usuario as UsuarioSchema, UsuarioCreate, UsuarioUpdate
 from app.exceptions.app_request_Exception import AppRequestError
-from uuid import UUID
+
 from typing import Optional
 
 def salvar_usuario(
@@ -23,8 +23,8 @@ def salvar_usuario(
             data.nome,
             data.email,
             data.senha,
-            str(data.perfil_id),
-            performed_by_id=str(admin.id)
+            data.perfil_id,
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -44,7 +44,7 @@ def listar_usuarios(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def atualizar_usuario(
-    id: UUID, 
+    id: int, 
     data: UsuarioUpdate, 
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
@@ -55,17 +55,17 @@ def atualizar_usuario(
     try:
         return UsuarioService.atualizar_usuario(
             db,
-            str(id),
+            id,
             data.nome,
             data.email,
-            str(data.perfil_id),
-            performed_by_id=str(admin.id)
+            data.perfil_id,
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def status_usuario(
-    id: UUID, 
+    id: int, 
     status_val: bool, 
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
@@ -76,15 +76,15 @@ def status_usuario(
     try:
         return UsuarioService.status_usuario(
             db,
-            str(id),
+            id,
             status_val,
-            performed_by_id=str(admin.id)
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def buscar_usuario(
-    id: UUID, 
+    id: int, 
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
 ):
@@ -92,7 +92,7 @@ def buscar_usuario(
     Busca os detalhes de um usuário pelo seu ID (Apenas Super Admin).
     """
     try:
-        return UsuarioService.buscar_usuario(db, str(id))
+        return UsuarioService.buscar_usuario(db, id)
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

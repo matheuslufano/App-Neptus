@@ -5,10 +5,10 @@ from app.utils.auth import get_current_user
 from app.models.usuario_model import Usuario
 from app.services.propriedade_service import PropriedadeService
 from app.exceptions.app_request_Exception import AppRequestError
-from uuid import UUID
+
 
 def convidar_usuario(
-    propriedade_id: UUID = Body(..., embed=True),
+    propriedade_id: int = Body(..., embed=True),
     email: str = Body(...),
     db: Session = Depends(get_db), 
     current_user: Usuario = Depends(get_current_user)
@@ -20,7 +20,7 @@ def convidar_usuario(
     """
     try:
         # Note: We need to implement this in PropriedadeService
-        return {"mensagem": PropriedadeService.convidar_usuario(db, str(propriedade_id), email, current_user)}
+        return {"mensagem": PropriedadeService.convidar_usuario(db, propriedade_id, email, current_user)}
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except AttributeError:

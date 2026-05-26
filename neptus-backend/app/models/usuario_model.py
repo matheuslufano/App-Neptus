@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-import uuid
+
 from app.database import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import validates
@@ -9,14 +9,14 @@ from app.models.utils.associacoes import propriedade_usuarios
 class Usuario(db.Model):
   __tablename__ = 'usuario'
 
-  id = db.Column(db.Uuid, primary_key=True, default=uuid.uuid4)
+  id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   nome = db.Column(db.String(100), nullable=False)
   email = db.Column(db.String(120), unique=True, nullable=False)
   senha = db.Column(db.String(200), nullable=False)
   e_admin = db.Column(db.Boolean, default=False)
   esta_ativo = db.Column(db.Boolean, default=True)
 
-  perfil_id = db.Column(db.Uuid,
+  perfil_id = db.Column(db.Integer,
                         db.ForeignKey('perfil.id'),
                         nullable=False)
   perfil = db.relationship('Perfil', back_populates='usuarios', lazy='selectin')
@@ -46,12 +46,12 @@ class Usuario(db.Model):
 
   def to_dict(self, include_propriedades=True):
     data = {
-        'id': str(self.id),
+        'id': self.id,
         'nome': self.nome,
         'email': self.email,
         'e_admin': self.e_admin, 
         'esta_ativo': self.esta_ativo,
-        'perfil_id': str(self.perfil_id),
+        'perfil_id': self.perfil_id,
         'perfil_nome': self.perfil.nome if self.perfil else None,
         'total_propriedades': len(self.propriedades),
         'criado_em': self.criado_em.isoformat() if self.criado_em else None,
@@ -60,7 +60,7 @@ class Usuario(db.Model):
     
     if include_propriedades:
       data['propriedades'] = [
-          {"nome": p.nome, "propriedade_id": str(p.id)} 
+          {"nome": p.nome, "propriedade_id": p.id} 
           for p in self.propriedades
       ]
       

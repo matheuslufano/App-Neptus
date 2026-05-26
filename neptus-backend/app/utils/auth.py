@@ -51,7 +51,7 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
     except JWTError:
         raise credentials_exception
         
-    user = db.query(Usuario).filter(Usuario.id == user_id).first()
+    user = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
     if not user.esta_ativo:

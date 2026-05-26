@@ -6,7 +6,7 @@ from app.models.usuario_model import Usuario
 from app.services.perfil_service import PerfilService
 from app.schemas.perfil_schema import Perfil, PerfilCreate, PerfilUpdate
 from app.exceptions.app_request_Exception import AppRequestError
-from uuid import UUID
+
 
 def salvar_perfil(
     data: PerfilCreate, 
@@ -23,7 +23,7 @@ def salvar_perfil(
             db,
             data.nome,
             data.permissoes,
-            performed_by_id=str(admin.id)
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -43,7 +43,7 @@ def listar_perfil(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def atualizar_perfil(
-    id: UUID, 
+    id: int, 
     data: PerfilUpdate, 
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
@@ -54,16 +54,16 @@ def atualizar_perfil(
     try:
         return PerfilService.atualizar_perfil(
             db,
-            str(id),
+            id,
             data.nome,
             data.permissoes,
-            performed_by_id=str(admin.id)
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def deletar_perfil(
-    id: UUID, 
+    id: int, 
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
 ):
@@ -75,15 +75,15 @@ def deletar_perfil(
     try:
         message = PerfilService.deletar_perfil(
             db,
-            str(id),
-            performed_by_id=str(admin.id)
+            id,
+            performed_by_id=admin.id
         )
         return {"mensagem": message}
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def buscar_perfil(
-    id: UUID, 
+    id: int, 
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
 ):
@@ -91,6 +91,6 @@ def buscar_perfil(
     Busca os detalhes de um perfil específico pelo seu ID (Apenas Super Admin).
     """
     try:
-        return PerfilService.buscar_perfil(db, str(id))
+        return PerfilService.buscar_perfil(db, id)
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

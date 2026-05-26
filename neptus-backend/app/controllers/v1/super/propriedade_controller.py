@@ -6,7 +6,7 @@ from app.models.usuario_model import Usuario
 from app.services.propriedade_service import PropriedadeService
 from app.schemas.propriedade_schema import Propriedade, PropriedadeCreate, PropriedadeUpdate
 from app.exceptions.app_request_Exception import AppRequestError
-from uuid import UUID
+
 
 def cadastrar_propriedade(
     data: PropriedadeCreate, 
@@ -20,8 +20,8 @@ def cadastrar_propriedade(
         return PropriedadeService.cadastrar_propriedade(
             db,
             data.nome,
-            str(data.proprietario_id),
-            performed_by_id=str(admin.id)
+            data.proprietario_id,
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -41,7 +41,7 @@ def listar_propriedades(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def atualizar_propriedade(
-    id: UUID, 
+    id: int, 
     data: PropriedadeUpdate, 
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
@@ -52,16 +52,16 @@ def atualizar_propriedade(
     try:
         return PropriedadeService.atualizar_propriedade(
             db,
-            str(id),
+            id,
             data.nome,
-            str(data.proprietario_id),
-            performed_by_id=str(admin.id)
+            data.proprietario_id,
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def detalhar_propriedade(
-    id: UUID, 
+    id: int, 
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
 ):
@@ -69,13 +69,13 @@ def detalhar_propriedade(
     Obtém informações detalhadas de uma propriedade, incluindo usuários associados (Apenas Super Admin).
     """
     try:
-        return PropriedadeService.detalhar_propriedade(db, str(id))
+        return PropriedadeService.detalhar_propriedade(db, id)
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def adicionar_usuario(
-    propriedade_id: UUID,
-    usuario_id: UUID,
+    propriedade_id: int,
+    usuario_id: int,
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
 ):
@@ -85,16 +85,16 @@ def adicionar_usuario(
     try:
         return PropriedadeService.adicionar_usuario(
             db,
-            str(propriedade_id),
-            str(usuario_id),
-            performed_by_id=str(admin.id)
+            propriedade_id,
+            usuario_id,
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 def remover_usuario(
-    propriedade_id: UUID,
-    usuario_id: UUID,
+    propriedade_id: int,
+    usuario_id: int,
     db: Session = Depends(get_db), 
     admin: Usuario = Depends(get_admin_user)
 ):
@@ -104,9 +104,9 @@ def remover_usuario(
     try:
         return PropriedadeService.remover_usuario(
             db,
-            str(propriedade_id),
-            str(usuario_id),
-            performed_by_id=str(admin.id)
+            propriedade_id,
+            usuario_id,
+            performed_by_id=admin.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

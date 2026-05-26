@@ -1,4 +1,4 @@
-import uuid
+
 from datetime import datetime, timezone
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import validates
@@ -10,9 +10,9 @@ class Tanque(db.Model):
         UniqueConstraint('id_propriedade', 'nome', name='uq_tanque_nome_propriedade'),
     )
     
-    id = db.Column(db.Uuid, primary_key=True, default=uuid.uuid4)
-    id_usuario = db.Column(db.Uuid, db.ForeignKey('usuario.id'))
-    id_propriedade = db.Column(db.Uuid, db.ForeignKey('propriedade.id'))
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_usuario = db.Column(db.Integer, db.ForeignKey('usuario.id'))
+    id_propriedade = db.Column(db.Integer, db.ForeignKey('propriedade.id'))
     nome = db.Column(db.String(50), nullable=False)
     area_tanque = db.Column(db.Numeric(10, 2), nullable=False)
     tipo_peixe = db.Column(db.String(50), nullable=False)
@@ -40,9 +40,9 @@ class Tanque(db.Model):
 
     def to_dict(self):
         return {
-            'id': str(self.id),
-            'id_usuario': str(self.id_usuario) if self.id_usuario else None,
-            'id_propriedade': str(self.id_propriedade) if self.id_propriedade else None,
+            'id': self.id,
+            'id_usuario': self.id_usuario,
+            'id_propriedade': self.id_propriedade,
             'nome': self.nome,
             'area_tanque': float(self.area_tanque) if self.area_tanque else 0.0,
             'tipo_peixe': self.tipo_peixe,

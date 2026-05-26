@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from uuid import UUID
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -14,7 +14,7 @@ class PerfilUpdate(PerfilBase):
     pass
 
 class Perfil(PerfilBase):
-    id: UUID
+    id: int
     criado_em: datetime
     atualizado_em: datetime
 

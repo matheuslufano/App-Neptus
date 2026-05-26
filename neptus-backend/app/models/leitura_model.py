@@ -1,14 +1,14 @@
 from datetime import datetime, timezone
-import uuid
+
 from sqlalchemy.orm import validates
 from app.database import db
 
 class Leitura(db.Model):
     __tablename__ = 'leitura'
     
-    id = db.Column(db.Uuid, primary_key=True, default=uuid.uuid4)
-    usuario_id = db.Column(db.Uuid, db.ForeignKey('usuario.id'), nullable=False)
-    tanque_id = db.Column(db.Uuid, db.ForeignKey('tanque.id'), nullable=False)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    tanque_id = db.Column(db.Integer, db.ForeignKey('tanque.id'), nullable=False)
     
     turbidez = db.Column(db.Numeric(10, 2), nullable=False)  
     oxigenio = db.Column(db.Numeric(10, 2), nullable=False)  
@@ -40,9 +40,9 @@ class Leitura(db.Model):
 
     def to_dict(self):
         return {
-            'id': str(self.id),
-            'usuario_id': str(self.usuario_id),
-            'tanque_id': str(self.tanque_id),
+            'id': self.id,
+            'usuario_id': self.usuario_id,
+            'tanque_id': self.tanque_id,
             'turbidez': float(self.turbidez),
             'oxigenio': float(self.oxigenio),
             'temperatura': float(self.temperatura),

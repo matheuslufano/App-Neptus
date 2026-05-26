@@ -1,12 +1,12 @@
 from pydantic import BaseModel, ConfigDict, field_validator
-from uuid import UUID
+
 from datetime import datetime
 from typing import Optional
 from decimal import Decimal
 
 class TanqueBase(BaseModel):
     nome: str
-    id_propriedade: UUID
+    id_propriedade: int
     area_tanque: Decimal
     tipo_peixe: str
     peso_peixe: Optional[Decimal] = None
@@ -21,7 +21,7 @@ class TanqueBase(BaseModel):
         return v
 
 class TanqueCreate(TanqueBase):
-    id_usuario: UUID
+    id_usuario: int
 
 class TanqueUpdate(BaseModel):
     nome: Optional[str] = None
@@ -32,8 +32,8 @@ class TanqueUpdate(BaseModel):
     ativo: Optional[bool] = None
 
 class Tanque(TanqueBase):
-    id: UUID
-    id_usuario: Optional[UUID] = None
+    id: int
+    id_usuario: Optional[int] = None
     criado_em: datetime
     atualizado_em: datetime
 
