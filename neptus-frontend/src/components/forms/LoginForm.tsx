@@ -8,6 +8,8 @@ import { useInternetConnection } from "@/hooks/useInternetConnection";
 import { useLogin } from "@/hooks/useLogin";
 import { LoginFormSchema, loginFormSchema } from "@/schemas/login-schema";
 import { parseErrorMessage } from "@/utils/error-util";
+import react, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import AppButton from "../AppButton";
 import {
@@ -16,6 +18,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormDescription,
   FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
@@ -23,6 +26,7 @@ import { Input } from "../ui/input";
 const LoginForm = () => {
   const { mutate: login, isError, error, isPending } = useLogin();
   const { isOnline } = useInternetConnection();
+  const [showPassword, setShowPassword] = useState(false);
 
   const loginForm = useForm<LoginFormSchema>({
     resolver: zodResolver(loginFormSchema),
@@ -35,6 +39,10 @@ const LoginForm = () => {
 
   const handleLogin = async (data: LoginFormSchema) => {
     login(data, { onError: () => reset() });
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -63,21 +71,36 @@ const LoginForm = () => {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="flex justify-between">
-                <span>Senha</span>
+              <FormLabel>Senha</FormLabel>
+              <FormDescription>
                 <Link
-                  className="text-muted-foreground hover:text-foreground underline"
+                  className="text-muted-foreground hover:text-foreground underline text-xs"
                   href="/recuperar-senha"
                 >
                   Esqueci minha senha
                 </Link>
-              </FormLabel>
+              </FormDescription>
               <FormControl>
-                <Input
-                  type="password"
-                  placeholder="Insira sua senha"
-                  {...field}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Insira sua senha"
+                    {...field}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={togglePasswordVisibility}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  > 
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
               </FormControl>
               <FormMessage className="text-xs" />
             </FormItem>
