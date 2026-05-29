@@ -2,6 +2,7 @@
 
 import { BluetoothIcon, Save, Settings } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import AppButton from "@/components/AppButton";
 import BluetoothConfig from "@/components/BluetoothConfig";
@@ -12,6 +13,7 @@ import { useAuthState } from "@/components/OfflineAuthManager";
 import PageHeader from "@/components/PageHeader";
 import SensorMetric from "@/components/SensorMetric";
 import TurbidityDisplay from "@/components/TurbidityDisplay";
+import CalibrationConfirmDialog from "@/components/calibration/CalibrationConfirmDialog";
 import { useInternetConnection } from "@/hooks/useInternetConnection";
 import { useSensorData } from "@/hooks/useSensorData";
 import { readingsDb } from "@/lib/db";
@@ -47,6 +49,7 @@ export default function Home() {
 
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [isBluetoothConfigOpen, setIsBluetoothConfigOpen] = useState(false);
+  const [isCalibrationConfirmOpen, setIsCalibrationConfirmOpen] = useState(false);
   const [lastSampleData, setLastSampleData] = useState<LastSampleData | null>(
     null,
   );
@@ -57,8 +60,8 @@ export default function Home() {
     turbidityValue: number;
     timestamp: string;
   } | null>(null);
-
-  // Função para buscar o último registro de amostra
+  const router = useRouter();
+  
   // Função para buscar o último registro de amostra
   const fetchLastSampleData = useCallback(async () => {
     try {
@@ -168,6 +171,16 @@ export default function Home() {
           </div>
         )}
 
+        <div className="flex justify-center">
+          <AppButton
+            variant="secondary"
+            size="lg"
+            onClick={() => setIsCalibrationConfirmOpen(true)}
+          >
+            Iniciar modo calibração
+          </AppButton>
+        </div>
+
         <div className="grid grid-cols-2 grid-rows-2 gap-5">
           <SensorMetric
             title="Oxigênio Dissolvido"
@@ -210,6 +223,15 @@ export default function Home() {
         isOpen={isBluetoothConfigOpen}
         onClose={() => setIsBluetoothConfigOpen(false)}
         onSuccess={() => setIsBluetoothConfigOpen(false)}
+      />
+
+      <CalibrationConfirmDialog
+        isOpen={isCalibrationConfirmOpen}
+        onConfirm={() => {
+          setIsCalibrationConfirmOpen(false);
+          router.push("/calibracao");
+        }}
+        onCancel={() => setIsCalibrationConfirmOpen(false)}
       />
     </>
   );

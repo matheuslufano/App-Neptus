@@ -22,8 +22,8 @@ const LoginPage = () => {
         />
         <h1 className="font-semibold text-2xl">Entre em sua conta</h1>
         <p className="text-center text-muted-foreground text-sm">
-          Insira seu email e senha abaixo para entrar em sua conta, ou
-          cadastre-se
+          Insira seu email e senha abaixo para entrar em sua conta. Caso ainda não tenha uma conta, 
+          peça a um administrador para criar uma.
         </p>
       </div>
 

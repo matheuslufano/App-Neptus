@@ -1,0 +1,54 @@
+import * as React from "react";
+import { Activity, Thermometer, Droplet } from "lucide-react";
+
+interface CalibrationStateCardProps {
+  stateLabel: string;
+  stepLabel: string;
+  description: string;
+  active?: boolean;
+}
+
+const stateIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  READ: Activity,
+  "0_NTU": Droplet,
+  "100_NTU": Droplet,
+  "200_NTU": Droplet,
+  "300_NTU": Droplet,
+  "400_NTU": Droplet,
+  "500_NTU": Droplet,
+  INATIV: Thermometer,
+};
+
+const CalibrationStateCard = ({
+  stateLabel,
+  stepLabel,
+  description,
+  active = false,
+}: CalibrationStateCardProps) => {
+  const Icon = stateIconMap[stateLabel] || Activity;
+
+  return (
+    <div
+      className={`rounded-2xl border p-4 shadow-sm transition-all ${
+        active
+          ? "border-primary bg-primary/10 shadow-md"
+          : "border-border bg-background"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">
+            {stepLabel}
+          </p>
+          <h3 className="text-lg font-semibold">{stateLabel}</h3>
+        </div>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
+    </div>
+  );
+};
+
+export default CalibrationStateCard;
