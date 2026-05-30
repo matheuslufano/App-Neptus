@@ -10,6 +10,7 @@ export const errorCodes = {
 
 export const getFriendlyMessage = (error: ApiError | Error): string => {
   const [code, ...messageParts] = error.message.split(":");
+  const rawMessage = messageParts.join(":").trim();
 
   const messages: Record<string, string> = {
     [errorCodes.INVALID_CREDENTIALS_ERROR]:
@@ -22,7 +23,7 @@ export const getFriendlyMessage = (error: ApiError | Error): string => {
       "Usuário está desativado, entre em contato com o suporte",
   };
 
-  return messages[code];
+  return messages[code] ?? (rawMessage || error.message);
 };
 
 export const formatAndThrowError = (
@@ -39,7 +40,7 @@ export const formatAndThrowError = (
 
 export const parseErrorMessage = (error: unknown): string => {
   if (error instanceof ApiError || error instanceof Error) {
-    return getFriendlyMessage(error);
+    return getFriendlyMessage(error) || error.message || "Erro desconhecido";
   }
 
   return "Erro desconhecido";

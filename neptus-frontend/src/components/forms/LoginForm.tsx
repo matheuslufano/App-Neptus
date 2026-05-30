@@ -8,8 +8,9 @@ import { useInternetConnection } from "@/hooks/useInternetConnection";
 import { useLogin } from "@/hooks/useLogin";
 import { LoginFormSchema, loginFormSchema } from "@/schemas/login-schema";
 import { parseErrorMessage } from "@/utils/error-util";
-import react, { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import AppButton from "../AppButton";
 import {
@@ -38,7 +39,13 @@ const LoginForm = () => {
   const { handleSubmit, reset, control, formState } = loginForm;
 
   const handleLogin = async (data: LoginFormSchema) => {
-    login(data, { onError: () => reset() });
+    login(data, {
+      onError: (err) => {
+        const message = parseErrorMessage(err);
+        toast.error(message);
+        reset({ email: data.email, password: "" });
+      },
+    });
   };
 
   const togglePasswordVisibility = () => {
@@ -115,9 +122,13 @@ const LoginForm = () => {
           {!isOnline ? "Sem conexão" : "Entrar"}
         </AppButton>
         {isError && (
-          <p className="text-error text-sm text-center">
-            {parseErrorMessage(error)}
-          </p>
+          <div
+            role="alert"
+            className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg"
+          >
+            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-800">{parseErrorMessage(error)}</p>
+          </div>
         )}
       </form>
     </Form>
