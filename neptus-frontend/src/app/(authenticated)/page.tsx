@@ -1,6 +1,6 @@
 "use client";
 
-import { BluetoothIcon, Save, Settings } from "lucide-react";
+import { BluetoothIcon, Save, Settings, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -13,7 +13,6 @@ import { useAuthState } from "@/components/OfflineAuthManager";
 import PageHeader from "@/components/PageHeader";
 import SensorMetric from "@/components/SensorMetric";
 import TurbidityDisplay from "@/components/TurbidityDisplay";
-import CalibrationConfirmDialog from "@/components/calibration/CalibrationConfirmDialog";
 import { useInternetConnection } from "@/hooks/useInternetConnection";
 import { useSensorData } from "@/hooks/useSensorData";
 import { readingsDb } from "@/lib/db";
@@ -49,7 +48,6 @@ export default function Home() {
 
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [isBluetoothConfigOpen, setIsBluetoothConfigOpen] = useState(false);
-  const [isCalibrationConfirmOpen, setIsCalibrationConfirmOpen] = useState(false);
   const [lastSampleData, setLastSampleData] = useState<LastSampleData | null>(
     null,
   );
@@ -147,7 +145,14 @@ export default function Home() {
                 <Save />
                 Registrar e continuar
               </AppButton>
-
+              <AppButton className="felx-1"
+                variant="outline" 
+                size="lg" 
+                onClick={refetch} 
+                disabled={isLoading}
+              >
+                <RotateCw />
+              </AppButton>
               <AppButton
                 variant="outline"
                 size="lg"
@@ -170,16 +175,6 @@ export default function Home() {
             </AppButton>
           </div>
         )}
-
-        <div className="flex justify-center">
-          <AppButton
-            variant="secondary"
-            size="lg"
-            onClick={() => setIsCalibrationConfirmOpen(true)}
-          >
-            Iniciar modo calibração
-          </AppButton>
-        </div>
 
         <div className="grid grid-cols-2 grid-rows-2 gap-5">
           <SensorMetric
@@ -211,6 +206,17 @@ export default function Home() {
             className="col-span-1"
           />
         </div>
+
+        <div className="flex justify-center ">
+          <AppButton className="w-53"
+            variant="secondary"
+            size="lg"
+            onClick={() => router.push("/calibracao")}
+          >
+            Modo calibração
+          </AppButton>
+        </div>
+
       </main>
 
       <AdditionalParameters
@@ -224,15 +230,7 @@ export default function Home() {
         onClose={() => setIsBluetoothConfigOpen(false)}
         onSuccess={() => setIsBluetoothConfigOpen(false)}
       />
-
-      <CalibrationConfirmDialog
-        isOpen={isCalibrationConfirmOpen}
-        onConfirm={() => {
-          setIsCalibrationConfirmOpen(false);
-          router.push("/calibracao");
-        }}
-        onCancel={() => setIsCalibrationConfirmOpen(false)}
-      />
+    
     </>
   );
 }

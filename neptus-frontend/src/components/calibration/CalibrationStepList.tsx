@@ -23,21 +23,26 @@ const CalibrationStepList = ({
       </div>
 
       <div className="space-y-2">
-        {steps.map((step, index) => (
-          <div
-            key={step}
-            className={`flex items-center justify-between rounded-2xl px-3 py-3 text-sm transition-colors ${
-              index === activeStepIndex
-                ? "bg-primary/10 text-primary"
-                : "bg-slate-50 text-muted-foreground"
-            }`}
-          >
-            <span>{step}</span>
-            {index === activeStepIndex ? <span className="font-semibold">Ativo</span> : null}
-          </div>
-        ))}
+        {steps.map((step, index) => {
+          const stepStyle =
+            index < activeStepIndex
+              ? "bg-emerald-500/15 text-emerald-700"
+              : index === activeStepIndex
+              ? "bg-sky-500 text-white shadow-lg shadow-sky-300"
+              : "bg-slate-200 text-muted-foreground";
+
+          return (
+            <div
+              key={step}
+              className={`flex items-center justify-between rounded-2xl px-3 py-3 text-sm transition duration-200 transform ${stepStyle}`}
+            >
+              <span>{step}</span>
+              {index === activeStepIndex ? <span className="font-semibold">Ativo</span> : null}
+            </div>
+          );
+        })}
       </div>
-      <AppButton variant="outline" onClick={onConfirm} disabled={!isConnected || activeStepIndex < 0}>
+      <AppButton className="w-full" variant="default" onClick={onConfirm} disabled={!isConnected || activeStepIndex < 0}>
         CONFIRM
       </AppButton>
     </div>

@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { FileText, Play, Wifi, WifiOff } from "lucide-react";
+import { Download } from "lucide-react";
 
 import AppButton from "@/components/AppButton";
-//import CalibrationStateCard from "@/components/calibration/CalibrationStateCard";
 import CalibrationStepList from "@/components/calibration/CalibrationStepList";
 import CalibrationConfirmDialog from "@/components/calibration/CalibrationConfirmDialog";
 
@@ -25,6 +25,7 @@ const CalibrationModeScreen = () => {
   const [temperatureValue, setTemperatureValue] = useState<number | null>(null);
   const [sequence, setSequence] = useState<string[]>([]);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [isStartingCalibration, setIsStartingCalibration] = useState(false);
 
   const currentStepLabel = useMemo(() => {
     if (currentState === "READ") return "Modo leitura contínua";
@@ -53,22 +54,31 @@ const CalibrationModeScreen = () => {
     setIsConfirmDialogOpen(true);
   };
 
-  const handleStartCalibrationConfirmed = () => {
+  const beginCalibration = () => {
     setCurrentState("0_NTU");
     setActiveStepIndex(0);
     setSampleValue(0);
     setTemperatureValue(22.5);
     setSequence((prev) => [...prev, "START_CAL"]);
-    setIsConfirmDialogOpen(false);
+    setIsStartingCalibration(false);
   };
 
-  const measureNtu = () => {
-    if (!isConnected) return;
-    const nextSample = Math.round(50 + Math.random() * 450);
-    setSampleValue(nextSample);
-    setTemperatureValue(parseFloat((20 + Math.random() * 4).toFixed(1)));
-    setSequence((prev) => [...prev, "MED"]);
+  const handleStartCalibrationConfirmed = () => {
+    setIsConfirmDialogOpen(false);
+    setIsStartingCalibration(true);
+    window.setTimeout(beginCalibration, 600);
   };
+
+// Por enquanto, a função do Botão "MED" vai ficar aqui guardada, mas depois ela vai ser implementada no
+// dashboard, onde o usuário pode medir a NTU a qualquer momento, Vai ser implementada com o icon de refresh, 
+// e não com o "MED" escrito, mas por enquanto, para facilitar os testes, vai ficar assim mesmo.
+//  const measureNtu = () => {
+//    if (!isConnected) return;
+//    const nextSample = Math.round(50 + Math.random() * 450);
+//    setSampleValue(nextSample);
+//    setTemperatureValue(parseFloat((20 + Math.random() * 4).toFixed(1)));
+//    setSequence((prev) => [...prev, "MED"]);
+//  };
 
   const confirmSample = () => {
     if (!isConnected || activeStepIndex < 0) return;
@@ -96,20 +106,22 @@ const CalibrationModeScreen = () => {
             <h2 className="text-1x1 font-semibold uppercase">
               Deseja iniciar a calibração ?
             </h2>
-            <p className="text-sm font-semibold text-muted-foreground">Antes, consulte o nosso guia em PDF caso não tenha conhecimento do processo.</p>
-            <a
-              href="/calibracao-guia.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <FileText className="h-4 w-4" />
-              Consultar guia em PDF
-            </a>
+            <div className="t-2 flex flex items-center gap-3">
+              <p className="text-sm font-semibold text-muted-foreground">Consulte o nosso guia para orientações.</p>
+              <a
+                href="/docs/Guia_Calibracao.pdf" download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-3 text-sm text-primary hover:underline"
+                
+              >
+                <Download/>
+              </a>
+            </div>
           </div>
 
           <div className="flex gap-2">
-            <AppButton variant="secondary" onClick={startCalibration}>
+            <AppButton className="w-full" variant="secondary" onClick={startCalibration}>
               <Play className="mr-2 h-4 w-4" />
               Iniciar calibração
             </AppButton>
@@ -120,18 +132,16 @@ const CalibrationModeScreen = () => {
       <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-5">
 
-
-          { //<CalibrationStateCard
-            //stateLabel={currentState}
-            //stepLabel={activeStepIndex >= 0 ? calibrationSteps[activeStepIndex] : "READ"}
-            //description={
-              // activeStepIndex >= 0
-                // ? "Etapa de calibração ativa. Confirme o valor para avançar."
-                //: "Dispositivo aguardando comando."
-            //}
-            //active={isConnected}
-            ///>
-          }
+          {isStartingCalibration ? (
+            <div className="rounded-3xl border border-border bg-background p-5 shadow-sm transition-opacity duration-300">
+              <div className="flex items-center gap-3">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <p className="text-sm font-semibold text-primary">
+                  Iniciando modo calibração...
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           <div className="rounded-3xl border border-border bg-background p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-4">
@@ -149,32 +159,21 @@ const CalibrationModeScreen = () => {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border bg-background p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-4 mb-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                Comandos
-              </p>
-              <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                {isConnected ? "Conectado" : "Desconectado"}
-              </span>
-            </div>
+          {//<div className="rounded-3xl border border-border bg-background p-5 shadow-sm">
+           //<div className="flex items-center justify-between gap-4 mb-5">
+             //<p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+               //Comandos
+             //</p>
+           //</div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <AppButton onClick={measureNtu} disabled={!isConnected || currentState !== "READ"}>
-                MED
-              </AppButton>
+           //<div className="grid gap-3 sm:grid-cols-3">
+             //<AppButton onClick={measureNtu} disabled={!isConnected || currentState !== "READ"}>
+               //MED
+             //</AppButton>
               
-              <AppButton
-                variant="ghost"
-                onClick={() => {
-                  setCurrentState("INATIV");
-                  setActiveStepIndex(-1);
-                }}
-              >
-                INATIV
-              </AppButton>
-            </div>
-          </div>
+           //</div>
+            //</div>
+          }
         </div>
 
         <CalibrationStepList
