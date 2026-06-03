@@ -119,6 +119,14 @@ export default function Home() {
     setStoredData({ turbidityValue, timestamp: new Date().toISOString() });
   };
 
+  const handleRefreshSensorData = async () => {
+    try {
+      await refetch();
+    } catch (error) {
+      console.error("Erro ao atualizar leitura do sensor:", error);
+    }
+  };
+
   if (authLoading) {
     return <LoadingFullScreen />;
   }
@@ -131,7 +139,7 @@ export default function Home() {
           description={getLastUpdatedText()}
         />
 
-        {isConnected ? (
+       {isConnected ? (
           <div className="space-y-3">
             <TurbidityDisplay turbidityValue={turbidityValue} />
 
@@ -145,10 +153,11 @@ export default function Home() {
                 <Save />
                 Registrar e continuar
               </AppButton>
-              <AppButton className="felx-1"
-                variant="outline" 
-                size="lg" 
-                onClick={refetch} 
+              <AppButton
+                className="flex-1"
+                variant="outline"
+                size="lg"
+                onClick={handleRefreshSensorData}
                 disabled={isLoading}
               >
                 <RotateCw />
@@ -207,15 +216,17 @@ export default function Home() {
           />
         </div>
 
-        <div className="flex justify-center ">
-          <AppButton className="w-53"
-            variant="secondary"
-            size="lg"
-            onClick={() => router.push("/calibracao")}
-          >
-            Modo calibração
-          </AppButton>
-        </div>
+        {isConnected ? (
+          <div className="flex justify-center ">
+            <AppButton className="w-53"
+              variant="secondary"
+              size="lg"
+              onClick={() => router.push("/calibracao")}
+            >
+              Modo calibração
+            </AppButton>
+          </div>
+        ) : null}
 
       </main>
 

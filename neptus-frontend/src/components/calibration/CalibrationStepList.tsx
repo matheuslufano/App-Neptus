@@ -5,13 +5,16 @@ interface CalibrationStepListProps {
   steps: string[];
   onConfirm: () => void;
   isConnected?: boolean;
+  disabled?: boolean;
 }
 
+// Componente para exibir a lista de etapas de calibração, destacando a etapa ativa e permitindo confirmação quando conectado.
 const CalibrationStepList = ({
   activeStepIndex,
   steps,
   onConfirm,
   isConnected = false,
+  disabled = false,
 }: CalibrationStepListProps) => {
   return (
     <div className="space-y-2 rounded-3xl border border-border bg-background p-4 shadow-sm">
@@ -42,7 +45,12 @@ const CalibrationStepList = ({
           );
         })}
       </div>
-      <AppButton className="w-full" variant="default" onClick={onConfirm} disabled={!isConnected || activeStepIndex < 0}>
+      <AppButton
+        className="w-full"
+        variant="default"
+        onClick={onConfirm}
+        disabled={!isConnected || activeStepIndex < 0 || disabled}
+      >
         CONFIRM
       </AppButton>
     </div>

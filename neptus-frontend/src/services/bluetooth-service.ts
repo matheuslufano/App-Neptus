@@ -11,6 +11,7 @@ export interface ESP32Data extends SensorData {
 export interface BluetoothConfig {
   serviceUUID: string;
   characteristicUUID: string;
+  rxCharacteristicUUID?: string;
   deviceName?: string;
   isConfigured: boolean;
 }
@@ -23,9 +24,13 @@ export interface BluetoothConnectionStatus {
 }
 
 class BluetoothService {
+  private readonly defaultRxCharacteristicUUID =
+    "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
   private config: BluetoothConfig = {
     serviceUUID: "12345678-1234-5678-1234-56789abcdef0",
     characteristicUUID: "abcdefab-1234-5678-1234-56789abcdef0",
+    rxCharacteristicUUID: this.defaultRxCharacteristicUUID,
     deviceName: "ESP32-Neptus",
     isConfigured: false,
   };
@@ -39,12 +44,15 @@ class BluetoothService {
 
   private dataCallbacks: ((data: SensorData) => void)[] = [];
   private statusCallbacks: ((status: BluetoothConnectionStatus) => void)[] = [];
+  private rawMessageCallbacks: ((message: string) => void)[] = [];
+  private rxCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
 
   constructor() {
     // Configuração para o protocolo NUS (Nordic UART Service)
     this.config = {
       serviceUUID: "6e400001-b5a3-f393-e0a9-e50e24dcca9e", // NUS Service UUID
       characteristicUUID: "6e400003-b5a3-f393-e0a9-e50e24dcca9e", // NUS TX Characteristic UUID
+      rxCharacteristicUUID: this.defaultRxCharacteristicUUID,
       deviceName: "ESP32-Turbidez", // Nome que o ESP32 anuncia
       isConfigured: true, // Já vem configurado por padrão
     };
@@ -168,10 +176,13 @@ class BluetoothService {
     serviceUUID: string,
     characteristicUUID: string,
     deviceName?: string,
+    rxCharacteristicUUID?: string,
   ) {
     this.config = {
       serviceUUID: serviceUUID.trim(),
       characteristicUUID: characteristicUUID.trim(),
+      rxCharacteristicUUID:
+        rxCharacteristicUUID?.trim() || this.config.rxCharacteristicUUID,
       deviceName: deviceName?.trim(),
       isConfigured: true,
     };
@@ -187,6 +198,7 @@ class BluetoothService {
     this.config = {
       serviceUUID: "12345678-1234-5678-1234-56789abcdef0",
       characteristicUUID: "abcdefab-1234-5678-1234-56789abcdef0",
+      rxCharacteristicUUID: this.defaultRxCharacteristicUUID,
       deviceName: "ESP32-Neptus",
       isConfigured: false,
     };
@@ -261,9 +273,14 @@ class BluetoothService {
       // Pega o serviço
       const service = await server.getPrimaryService(this.config.serviceUUID);
 
-      // Pega a característica
+      // Pega a característica de notificação (ESP32 → App)
       const characteristic = await service.getCharacteristic(
         this.config.characteristicUUID,
+      );
+
+      // Pega a característica de escrita (App → ESP32)
+      const rxCharacteristic = await service.getCharacteristic(
+        this.config.rxCharacteristicUUID || this.defaultRxCharacteristicUUID,
       );
 
       // Ativa notificações
@@ -282,6 +299,7 @@ class BluetoothService {
         server,
         characteristic,
       };
+      this.rxCharacteristic = rxCharacteristic;
 
       this.notifyStatusChange();
 
@@ -335,9 +353,14 @@ class BluetoothService {
       // Pega o serviço
       const service = await server.getPrimaryService(this.config.serviceUUID);
 
-      // Pega a característica
+      // Pega a característica de notificação (ESP32 → App)
       const characteristic = await service.getCharacteristic(
         this.config.characteristicUUID,
+      );
+
+      // Pega a característica de escrita (App → ESP32)
+      const rxCharacteristic = await service.getCharacteristic(
+        this.config.rxCharacteristicUUID || this.defaultRxCharacteristicUUID,
       );
 
       // Ativa notificações
@@ -356,6 +379,7 @@ class BluetoothService {
         server,
         characteristic,
       };
+      this.rxCharacteristic = rxCharacteristic;
 
       this.notifyStatusChange();
 
@@ -398,6 +422,7 @@ class BluetoothService {
         server: null,
         characteristic: null,
       };
+      this.rxCharacteristic = null;
 
       this.notifyStatusChange();
     } catch (error) {
@@ -413,29 +438,33 @@ class BluetoothService {
 
       if (!value) return;
 
-      // O ESP32 envia dados como string JSON via protocolo NUS
       const decoder = new TextDecoder();
       const dataString = decoder.decode(value).trim();
+
+      this.rawMessageCallbacks.forEach((callback) => callback(dataString));
 
       let turbidez: number = 0;
       let nivel: string | undefined;
       let timestamp: number | undefined;
 
-      try {
-        // Tenta fazer parsing do JSON (formato atual do ESP32)
-        const jsonData = JSON.parse(dataString);
+      if (dataString.startsWith("{")) {
+        try {
+          const jsonData = JSON.parse(dataString);
 
-        turbidez = jsonData.turbidez || 0;
-        nivel = jsonData.nivel;
-        timestamp = jsonData.timestamp;
-      } catch (jsonError) {
-        // Fallback: tenta converter diretamente para número
+          turbidez = jsonData.turbidez || 0;
+          nivel = jsonData.nivel;
+          timestamp = jsonData.timestamp;
+        } catch (jsonError) {
+          console.warn("⚠️ JSON inválido recebido:", dataString);
+          return;
+        }
+      } else {
         const numericValue = parseFloat(dataString);
 
         if (!isNaN(numericValue)) {
           turbidez = numericValue;
         } else {
-          console.warn("⚠️ Formato de dados não reconhecido:", dataString);
+          // Mensagem de estado ou erro. Já notificada para listeners.
           return;
         }
       }
@@ -446,7 +475,6 @@ class BluetoothService {
         ph: undefined,
       };
 
-      // Notifica todos os callbacks
       this.dataCallbacks.forEach((callback) => callback(sensorData));
     } catch (error) {
       console.error("❌ Erro ao processar dados Bluetooth:", error);
@@ -461,6 +489,7 @@ class BluetoothService {
       server: null,
       characteristic: null,
     };
+    this.rxCharacteristic = null;
     this.notifyStatusChange();
   }
 
@@ -521,6 +550,41 @@ class BluetoothService {
     return () => {
       this.dataCallbacks = this.dataCallbacks.filter((cb) => cb !== callback);
     };
+  }
+
+  // Registra callback para receber mensagens de estado ou erros do firmware
+  onRawMessageReceived(callback: (message: string) => void): () => void {
+    this.rawMessageCallbacks.push(callback);
+
+    return () => {
+      this.rawMessageCallbacks = this.rawMessageCallbacks.filter(
+        (cb) => cb !== callback,
+      );
+    };
+  }
+
+  private notifyRawMessage(message: string) {
+    this.rawMessageCallbacks.forEach((callback) => callback(message));
+  }
+
+  async sendCommand(command: string): Promise<void> {
+    if (!this.connectionStatus.isConnected || !this.rxCharacteristic) {
+      throw new Error("Dispositivo Bluetooth não conectado");
+    }
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(command);
+
+    try {
+      await this.rxCharacteristic.writeValue(data);
+    } catch (error) {
+      if ("writeValueWithoutResponse" in this.rxCharacteristic) {
+        // @ts-expect-error API experimental em alguns navegadores
+        await (this.rxCharacteristic as any).writeValueWithoutResponse(data);
+        return;
+      }
+      throw error;
+    }
   }
 
   // Registra callback para mudanças de status de conexão

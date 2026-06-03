@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { FileText, Play, Wifi, WifiOff } from "lucide-react";
-import { Download } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Play, Wifi, WifiOff, Download } from "lucide-react";
 
 import AppButton from "@/components/AppButton";
 import CalibrationStepList from "@/components/calibration/CalibrationStepList";
 import CalibrationConfirmDialog from "@/components/calibration/CalibrationConfirmDialog";
+import { useBluetoothSensorData } from "@/hooks/useBluetoothSensorData";
 
 const calibrationSteps = [
   "0_NTU",
@@ -18,7 +18,9 @@ const calibrationSteps = [
 ];
 
 const CalibrationModeScreen = () => {
-  const [isConnected, setIsConnected] = useState(true);
+  const { sensorData, isConnected, sendCommand, onRawMessageReceived } =
+    useBluetoothSensorData();
+
   const [currentState, setCurrentState] = useState("READ");
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [sampleValue, setSampleValue] = useState<number | null>(null);
@@ -26,77 +28,157 @@ const CalibrationModeScreen = () => {
   const [sequence, setSequence] = useState<string[]>([]);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isStartingCalibration, setIsStartingCalibration] = useState(false);
+  const [isCommandPending, setIsCommandPending] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // O estado atual do firmware é representado por valores como READ, LENDO, PROCESSANDO, e as etapas de calibração.
+  // Isso é usado para alterar a UI e habilitar/desabilitar ações de confirmação.
 
   const currentStepLabel = useMemo(() => {
     if (currentState === "READ") return "Modo leitura contínua";
     if (currentState === "INATIV") return "Inatividade detectada";
+    if (currentState === "LENDO") return "Capturando amostra";
+    if (currentState === "PROCESSANDO") return "Processando calibração";
     return "Amostra de calibração";
   }, [currentState]);
 
-  const connectDevice = () => {
-    setIsConnected(true);
-    setCurrentState("READ");
-    setSampleValue(null);
-    setTemperatureValue(null);
-  };
+  useEffect(() => {
+    if (sensorData?.turbidez != null) {
+      setSampleValue(sensorData.turbidez);
+    }
+  }, [sensorData]);
 
-  const disconnectDevice = () => {
-    setIsConnected(false);
-    setCurrentState("READ");
-    setActiveStepIndex(-1);
-    setSequence([]);
-    setSampleValue(null);
-    setTemperatureValue(null);
-  };
+  // Atualiza o valor exibido na UI sempre que a leitura de turbidez chega pelo hook BLE.
 
-  const startCalibration = () => {
-    if (!isConnected) return;
-    setIsConfirmDialogOpen(true);
-  };
-
-  const beginCalibration = () => {
-    setCurrentState("0_NTU");
-    setActiveStepIndex(0);
-    setSampleValue(0);
-    setTemperatureValue(22.5);
-    setSequence((prev) => [...prev, "START_CAL"]);
-    setIsStartingCalibration(false);
-  };
-
-  const handleStartCalibrationConfirmed = () => {
-    setIsConfirmDialogOpen(false);
-    setIsStartingCalibration(true);
-    window.setTimeout(beginCalibration, 600);
-  };
-
-// Por enquanto, a função do Botão "MED" vai ficar aqui guardada, mas depois ela vai ser implementada no
-// dashboard, onde o usuário pode medir a NTU a qualquer momento, Vai ser implementada com o icon de refresh, 
-// e não com o "MED" escrito, mas por enquanto, para facilitar os testes, vai ficar assim mesmo.
-//  const measureNtu = () => {
-//    if (!isConnected) return;
-//    const nextSample = Math.round(50 + Math.random() * 450);
-//    setSampleValue(nextSample);
-//    setTemperatureValue(parseFloat((20 + Math.random() * 4).toFixed(1)));
-//    setSequence((prev) => [...prev, "MED"]);
-//  };
-
-  const confirmSample = () => {
-    if (!isConnected || activeStepIndex < 0) return;
-
-    if (activeStepIndex === calibrationSteps.length - 1) {
+  useEffect(() => {
+    if (!isConnected) {
       setCurrentState("READ");
       setActiveStepIndex(-1);
-      setSequence((prev) => [...prev, "CONFIRM", "START_CAL"]);
+      setIsStartingCalibration(false);
+      setStatusMessage(null);
+      setErrorMessage(null);
+    }
+  }, [isConnected]);
+
+  // Quando o ESP32 desconecta, limpa o estado de calibração para evitar UI inconsistentes.
+
+  const handleCalibrationMessage = useCallback((message: string) => {
+    const normalized = message.trim();
+    if (!normalized) return;
+
+    // Todas as mensagens raw chegam do firmware do ESP32.
+    // Mensagens JSON são ignoradas aqui porque são tratadas em outro fluxo.
+    setErrorMessage(null);
+    setStatusMessage(normalized);
+    setIsStartingCalibration(false);
+    setIsCommandPending(false);
+
+    if (normalized === "LENDO") {
+      setCurrentState("LENDO");
       return;
     }
 
-    const nextIndex = activeStepIndex + 1;
-    setCurrentState(calibrationSteps[nextIndex]);
-    setActiveStepIndex(nextIndex);
-    setSampleValue(nextIndex * 100);
-    setTemperatureValue(parseFloat((20 + Math.random() * 4).toFixed(1)));
-    setSequence((prev) => [...prev, "CONFIRM"]);
+    if (normalized === "PROCESSANDO") {
+      setCurrentState("PROCESSANDO");
+      return;
+    }
+
+    if (normalized === "CALIB_OK") {
+      setCurrentState("READ");
+      setActiveStepIndex(-1);
+      setSequence([]);
+      setStatusMessage("Calibração concluída com sucesso.");
+      return;
+    }
+
+    if (normalized === "CALIB_CANCELADA" || normalized === "INATIV") {
+      setCurrentState("READ");
+      setActiveStepIndex(-1);
+      setStatusMessage(
+        normalized === "INATIV"
+          ? "Calibração interrompida por inatividade."
+          : "Calibração cancelada.",
+      );
+      return;
+    }
+
+    if (normalized.startsWith("ERRO_")) {
+      setErrorMessage(normalized);
+      return;
+    }
+
+    const stepIndex = calibrationSteps.indexOf(normalized);
+    if (stepIndex !== -1) {
+      setCurrentState(normalized);
+      setActiveStepIndex(stepIndex);
+      setStatusMessage(`Aguardando CONFIRM para ${normalized}`);
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    // Escuta mensagens diretas do firmware ESP32 e traduz estados de calibração.
+    const unsubscribe = onRawMessageReceived((message) => {
+      if (message.startsWith("{")) return;
+      handleCalibrationMessage(message);
+    });
+
+    return unsubscribe;
+  }, [handleCalibrationMessage, onRawMessageReceived]);
+
+  const startCalibration = () => {
+    // Não inicia a calibração se não houver conexão ou se já estiver em processo.
+    if (!isConnected || isCommandPending || currentState !== "READ") return;
+    setIsConfirmDialogOpen(true);
   };
+
+  const handleStartCalibrationConfirmed = async () => {
+    if (!isConnected) return;
+
+    setIsConfirmDialogOpen(false);
+    setIsStartingCalibration(true);
+    setIsCommandPending(true);
+    setStatusMessage("Enviando START_CAL ao ESP32...");
+    setErrorMessage(null);
+
+    try {
+      await sendCommand("START_CAL");
+      setSequence((prev) => [...prev, "START_CAL"]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao enviar START_CAL";
+      setErrorMessage(message);
+      setIsStartingCalibration(false);
+    } finally {
+      setIsCommandPending(false);
+    }
+  };
+
+  const confirmSample = async () => {
+    // Confirma a etapa atual de calibração e envia comando ao firmware.
+    if (!isConnected || activeStepIndex < 0 || isCommandPending) return;
+
+    setIsCommandPending(true);
+    setStatusMessage("Enviando CONFIRM ao ESP32...");
+    setErrorMessage(null);
+
+    try {
+      await sendCommand("CONFIRM");
+      setSequence((prev) => [...prev, "CONFIRM"]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao enviar CONFIRM";
+      setErrorMessage(message);
+    } finally {
+      setIsCommandPending(false);
+    }
+  };
+
+  const isConfirmDisabled =
+    !isConnected ||
+    activeStepIndex < 0 ||
+    isCommandPending ||
+    currentState === "LENDO" ||
+    currentState === "PROCESSANDO";
 
   return (
     <div className="space-y-6">
@@ -106,47 +188,79 @@ const CalibrationModeScreen = () => {
             <h2 className="text-1x1 font-semibold uppercase">
               Deseja iniciar a calibração ?
             </h2>
-            <div className="t-2 flex flex items-center gap-3">
-              <p className="text-sm font-semibold text-muted-foreground">Consulte o nosso guia para orientações.</p>
+            <div className="t-2 flex items-center gap-3">
+              <p className="text-sm font-semibold text-muted-foreground">
+                Consulte o nosso guia para orientações.
+              </p>
               <a
-                href="/docs/Guia_Calibracao.pdf" download
+                href="/docs/Guia_Calibracao.pdf"
+                download
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-3 inline-flex items-center gap-3 text-sm text-primary hover:underline"
-                
               >
-                <Download/>
+                <Download />
               </a>
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <AppButton className="w-full" variant="secondary" onClick={startCalibration}>
-              <Play className="mr-2 h-4 w-4" />
-              Iniciar calibração
-            </AppButton>
-          </div>
+          {isConnected ? (
+            <div className="flex w-full justify-end sm:w-auto">
+              <AppButton
+                className="w-full sm:w-auto"
+                variant="secondary"
+                onClick={startCalibration}
+                disabled={isCommandPending || currentState !== "READ"}
+              >
+                <Play className="mr-2 h-4 w-4" />
+                Iniciar calibração
+              </AppButton>
+            </div>
+          ) : null}
+
+          {!isConnected ? (
+            <div className="rounded-2xl bg-slate-50 p-3 text-sm text-muted-foreground flex items-center gap-2">
+              <WifiOff className="h-4 w-4 text-red-600" />
+              <span>ESP32 desconectado. Conecte pelo painel antes de calibrar.</span>
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-5">
-
-          {isStartingCalibration ? (
-            <div className="rounded-3xl border border-border bg-background p-5 shadow-sm transition-opacity duration-300">
-              <div className="flex items-center gap-3">
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <p className="text-sm font-semibold text-primary">
-                  Iniciando modo calibração...
-                </p>
+          {statusMessage || errorMessage ? (
+            <div className="rounded-3xl border border-border bg-background p-5 shadow-sm">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-4">
+                Status de calibração
+              </p>
+              <div className="text-sm text-foreground">
+                {errorMessage ? (
+                  <span className="text-destructive">{errorMessage}</span>
+                ) : (
+                  <span>{statusMessage}</span>
+                )}
               </div>
             </div>
           ) : null}
 
           <div className="rounded-3xl border border-border bg-background p-5 shadow-sm">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-4">
-              Última leitura
-            </p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Última leitura
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {currentStepLabel}
+                </p>
+              </div>
+              {(currentState === "LENDO" || currentState === "PROCESSANDO" || isStartingCalibration) && (
+                <div className="flex items-center gap-2 text-sm text-primary">
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <span>{currentState === "PROCESSANDO" ? "Processando..." : "Aguardando ..."}</span>
+                </div>
+              )}
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-sm text-muted-foreground">NTU</p>
@@ -158,22 +272,6 @@ const CalibrationModeScreen = () => {
               </div>
             </div>
           </div>
-
-          {//<div className="rounded-3xl border border-border bg-background p-5 shadow-sm">
-           //<div className="flex items-center justify-between gap-4 mb-5">
-             //<p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-               //Comandos
-             //</p>
-           //</div>
-
-           //<div className="grid gap-3 sm:grid-cols-3">
-             //<AppButton onClick={measureNtu} disabled={!isConnected || currentState !== "READ"}>
-               //MED
-             //</AppButton>
-              
-           //</div>
-            //</div>
-          }
         </div>
 
         <CalibrationStepList
@@ -181,6 +279,7 @@ const CalibrationModeScreen = () => {
           steps={calibrationSteps}
           onConfirm={confirmSample}
           isConnected={isConnected}
+          disabled={isConfirmDisabled}
         />
       </div>
 
