@@ -58,6 +58,7 @@ export default function Home() {
     turbidityValue: number;
     timestamp: string;
   } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const router = useRouter();
   
   // Função para buscar o último registro de amostra
@@ -120,10 +121,19 @@ export default function Home() {
   };
 
   const handleRefreshSensorData = async () => {
+    setIsRefreshing(true);
+    const start = Date.now();
     try {
       await refetch();
     } catch (error) {
       console.error("Erro ao atualizar leitura do sensor:", error);
+    } finally {
+      const minDuration = 600;
+      const elapsed = Date.now() - start;
+      if (elapsed < minDuration) {
+        await new Promise((resolve) => setTimeout(resolve, minDuration - elapsed)); 
+      }
+      setIsRefreshing(false);
     }
   };
 
@@ -158,11 +168,17 @@ export default function Home() {
                 variant="outline"
                 size="lg"
                 onClick={handleRefreshSensorData}
-                disabled={isLoading}
+                disabled={isLoading || isRefreshing}
+                aria-label="Atualizar leitura"
               >
-                <RotateCw />
+                <RotateCw 
+                  className={
+                    isRefreshing ? "animate-spin" : undefined
+                  }
+                />
               </AppButton>
               <AppButton
+                className="flex-1"
                 variant="outline"
                 size="lg"
                 onClick={() => setIsBluetoothConfigOpen(true)}

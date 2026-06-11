@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { bluetoothService, SensorData } from "@/services/bluetooth-service";
 import { useBluetoothConfigStore } from "@/stores/bluetoothConfigStore";
+import { BluetoothCommand, bluetoothCommandSchema } from "@/schemas/bluetooth-commands";
 
 // Tipo de retorno do hook useBluetoothSensorData definindo os dados do sensor, status de conexão, erros e funções para conectar/desconectar e enviar comandos.
 interface UseBluetoothSensorDataReturn {
@@ -11,7 +12,7 @@ interface UseBluetoothSensorDataReturn {
   error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
-  sendCommand: (command: string) => Promise<void>;
+  sendCommand: (command: BluetoothCommand) => Promise<void>;
   onRawMessageReceived: (callback: (message: string) => void) => () => void;
   isSupported: boolean;
 }
@@ -139,14 +140,15 @@ export const useBluetoothSensorData = (): UseBluetoothSensorDataReturn => {
     }
   }, [config, isSupported, setConnectionStatus]);
 
-  // Envia comandos arbitrários ao ESP32 via característica de escrita NUS.
-  // O hook faz apenas a validação de conexão e delega ao serviço singleton.
-  const sendCommand = useCallback(async (command: string) => {
+  // Envia comandos ao ESP32 usando tipagem segura para o protocolo Bluetooth.
+  // O hook valida a conexão e delega ao serviço singleton.
+  const sendCommand = useCallback(async (command: BluetoothCommand) => {
     if (!isConnected) {
       throw new Error("Bluetooth não está conectado");
     }
 
-    return bluetoothService.sendCommand(command);
+    const parsedCommand = bluetoothCommandSchema.parse(command);
+    return bluetoothService.sendCommand(parsedCommand);
   }, [isConnected]);
 
   // Inscreve o consumidor para receber mensagens raw do firmware do ESP32.

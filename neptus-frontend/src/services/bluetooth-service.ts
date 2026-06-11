@@ -1,3 +1,5 @@
+import { BluetoothCommand } from "@/schemas/bluetooth-commands";
+
 export interface SensorData {
   turbidez: number;
   temperatura?: number;
@@ -449,8 +451,10 @@ class BluetoothService {
 
       if (dataString.startsWith("{")) {
         try {
+          //Tenta fazer parsing do JSON (formato atual do ESP32)
           const jsonData = JSON.parse(dataString);
-
+          
+          //FALLBACK : tenta converter diretamente para número 
           turbidez = jsonData.turbidez || 0;
           nivel = jsonData.nivel;
           timestamp = jsonData.timestamp;
@@ -567,7 +571,7 @@ class BluetoothService {
     this.rawMessageCallbacks.forEach((callback) => callback(message));
   }
 
-  async sendCommand(command: string): Promise<void> {
+  async sendCommand(command: BluetoothCommand): Promise<void> {
     if (!this.connectionStatus.isConnected || !this.rxCharacteristic) {
       throw new Error("Dispositivo Bluetooth não conectado");
     }
@@ -578,8 +582,8 @@ class BluetoothService {
     try {
       await this.rxCharacteristic.writeValue(data);
     } catch (error) {
+      // "@ts-expect-error" API experimental em alguns navegadores
       if ("writeValueWithoutResponse" in this.rxCharacteristic) {
-        // @ts-expect-error API experimental em alguns navegadores
         await (this.rxCharacteristic as any).writeValueWithoutResponse(data);
         return;
       }
