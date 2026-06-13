@@ -12,12 +12,12 @@ import { bluetoothCommands } from "@/schemas/bluetooth-commands";
 import { useBluetoothSensorData } from "@/hooks/useBluetoothSensorData";
 
 const calibrationSteps = [
-  "0_NTU",
-  "100_NTU",
-  "200_NTU",
-  "300_NTU",
-  "400_NTU",
-  "500_NTU",
+  "0 NTU",
+  "100 NTU",
+  "200 NTU",
+  "300 NTU",
+  "400 NTU",
+  "500 NTU",
 ];
 
 const CalibrationModeScreen = () => {
@@ -27,7 +27,7 @@ const CalibrationModeScreen = () => {
   const [currentState, setCurrentState] = useState("READ");
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [sampleValue, setSampleValue] = useState<number | null>(null);
-  const [temperatureValue, setTemperatureValue] = useState<number | null>(null);
+  //const [temperatureValue, setTemperatureValue] = useState<number | null>(null);
   const [sequence, setSequence] = useState<string[]>([]);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isStartingCalibration, setIsStartingCalibration] = useState(false);
@@ -132,7 +132,7 @@ const CalibrationModeScreen = () => {
     if (stepIndex !== -1) {
       setCurrentState(normalized);
       setActiveStepIndex(stepIndex);
-      setStatusMessage(`Aguardando CONFIRM para ${normalized}`);
+      setStatusMessage(`Aguardando "CONFIRMAR AMOSTRA" para coletar e calibrar o sensor.`);
       return;
     }
   }, []);
@@ -159,14 +159,14 @@ const CalibrationModeScreen = () => {
     setIsConfirmDialogOpen(false);
     setIsStartingCalibration(true);
     setIsCommandPending(true);
-    setStatusMessage("Enviando START_CAL ao ESP32...");
+    setStatusMessage("Iniciando calibração no ESP32...");
     setErrorMessage(null);
 
     try {
       await sendCommand(bluetoothCommands.START_CAL);
       setSequence((prev) => [...prev, bluetoothCommands.START_CAL]);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Falha ao enviar START_CAL";
+      const message = err instanceof Error ? err.message : "Falha ao iniciar calibração";
       setErrorMessage(message);
       setIsStartingCalibration(false);
     } finally {
@@ -179,14 +179,14 @@ const CalibrationModeScreen = () => {
     if (!isConnected || activeStepIndex < 0 || isCommandPending) return;
 
     setIsCommandPending(true);
-    setStatusMessage("Enviando CONFIRM ao ESP32...");
+    setStatusMessage("Confirmando amostra no ESP32...");
     setErrorMessage(null);
 
     try {
       await sendCommand(bluetoothCommands.CONFIRM);
       setSequence((prev) => [...prev, bluetoothCommands.CONFIRM]);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Falha ao enviar CONFIRM";
+      const message = err instanceof Error ? err.message : "Falha ao coletar amostra";
       setErrorMessage(message);
     } finally {
       setIsCommandPending(false);
@@ -205,6 +205,10 @@ const CalibrationModeScreen = () => {
     currentState === "INATIV" ||
     statusMessage?.toLowerCase().includes("inatividade") ||
     statusMessage?.toLowerCase().includes("erro");
+
+  const statusCardClasses = isStatusNegative
+    ? "rounded-3xl border border-destructive/30 bg-destructive/10 p-5 shadow-sm"
+    : "rounded-3xl border border-border bg-background p-5 shadow-sm";
 
   return (
     <div className="space-y-6">
@@ -256,7 +260,7 @@ const CalibrationModeScreen = () => {
       <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-5">
           {statusMessage || errorMessage ? (
-            <div className="rounded-3xl border border-border bg-background p-5 shadow-sm">
+            <div className={statusCardClasses}>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-4">
                 Status de calibração
               </p>
@@ -292,10 +296,13 @@ const CalibrationModeScreen = () => {
                 <p className="text-sm text-muted-foreground">NTU</p>
                 <p className="text-3xl font-semibold mt-2">{sampleValue ?? "--"}</p>
               </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
+              {// Futura implementação para exibir temperatura, atualmente o firmware não envia essa informação durante a calibração.
+              
+              /*<div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-sm text-muted-foreground">Temperatura</p>
                 <p className="text-3xl font-semibold mt-2">{temperatureValue ?? "--"} °C</p>
               </div>
+              */}
             </div>
             {isCalibrationLoading ? (
               <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/60 backdrop-blur-sm flex items-center justify-center">

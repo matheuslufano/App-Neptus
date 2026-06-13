@@ -34,13 +34,20 @@ const CalibrationStepList = ({
               ? "bg-sky-500 text-white shadow-lg shadow-sky-300"
               : "bg-slate-200 text-muted-foreground";
 
+          const stepLabel =
+            index < activeStepIndex
+              ? "Concluído"
+              : index === activeStepIndex
+              ? "Ativo"
+              : undefined;
+
           return (
             <div
               key={step}
               className={`flex items-center justify-between rounded-2xl px-3 py-3 text-sm transition duration-200 transform ${stepStyle}`}
             >
               <span>{step}</span>
-              {index === activeStepIndex ? <span className="font-semibold">Ativo</span> : null}
+              {stepLabel ? <span className="font-semibold">{stepLabel}</span> : null}
             </div>
           );
         })}
@@ -51,7 +58,7 @@ const CalibrationStepList = ({
         onClick={onConfirm}
         disabled={!isConnected || activeStepIndex < 0 || disabled}
       >
-        CONFIRM
+        CONFIRMAR AMOSTRA
       </AppButton>
     </div>
   );
