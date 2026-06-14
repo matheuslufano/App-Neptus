@@ -53,8 +53,6 @@ export default function Home() {
   
   const { selectedPropertyId } = usePropertyStore();
 
-  const { selectedPropertyId } = usePropertyStore();
-
   const [storedData, setStoredData] = useState<{
     turbidityValue: number;
     timestamp: string;
