@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { bluetoothService, SensorData } from "@/services/bluetooth-service";
 import { useBluetoothConfigStore } from "@/stores/bluetoothConfigStore";
+import { BluetoothCommand, bluetoothCommandSchema } from "@/schemas/bluetooth-commands";
 
+// Tipo de retorno do hook useBluetoothSensorData definindo os dados do sensor, status de conexão, erros e funções para conectar/desconectar e enviar comandos.
 interface UseBluetoothSensorDataReturn {
   sensorData: SensorData | null;
   isConnecting: boolean;
@@ -10,6 +12,8 @@ interface UseBluetoothSensorDataReturn {
   error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
+  sendCommand: (command: BluetoothCommand) => Promise<void>;
+  onRawMessageReceived: (callback: (message: string) => void) => () => void;
   isSupported: boolean;
 }
 
@@ -25,7 +29,8 @@ export const useBluetoothSensorData = (): UseBluetoothSensorDataReturn => {
   const [isConnected, setIsConnected] = useState(currentStatus.isConnected);
   const [error, setError] = useState<string | null>(null);
 
-  // Monitora dados recebidos via Bluetooth
+  // Monitora dados recebidos via Bluetooth e atualiza o estado local.
+  // O serviço BLE emite dados sempre que a característica de notificação envia um pacote.
   useEffect(() => {
     const unsubscribeData = bluetoothService.onDataReceived((data) => {
       setSensorData(data);
@@ -35,7 +40,8 @@ export const useBluetoothSensorData = (): UseBluetoothSensorDataReturn => {
     return unsubscribeData;
   }, []);
 
-  // Inscrição reativa aos eventos do BLE (Bluetooth Low Energy) via singleton do serviço
+  // Inscrição reativa aos eventos de status do BLE.
+  // Isso mantém o estado do hook sincronizado com o singleton bluetoothService.
   useEffect(() => {
     const currentStatus = bluetoothService.getConnectionStatus();
     setIsConnected(currentStatus.isConnected);
@@ -49,11 +55,11 @@ export const useBluetoothSensorData = (): UseBluetoothSensorDataReturn => {
       setError(null);
     }
 
-    // Inscreve para mudanças futuras
+    // Inscreve para mudanças futuras de conexão/desconexão.
     const unsubscribeStatus = bluetoothService.onStatusChange((status) => {
       setIsConnected(status.isConnected);
 
-      // Atualiza o store
+      // Atualiza o store com o novo estado
       setConnectionStatus({
         isConnected: status.isConnected,
         deviceName: status.device?.name,
@@ -134,6 +140,26 @@ export const useBluetoothSensorData = (): UseBluetoothSensorDataReturn => {
     }
   }, [config, isSupported, setConnectionStatus]);
 
+  // Envia comandos ao ESP32 usando tipagem segura para o protocolo Bluetooth.
+  // O hook valida a conexão e delega ao serviço singleton.
+  const sendCommand = useCallback(async (command: BluetoothCommand) => {
+    if (!isConnected) {
+      throw new Error("Bluetooth não está conectado");
+    }
+
+    const parsedCommand = bluetoothCommandSchema.parse(command);
+    return bluetoothService.sendCommand(parsedCommand);
+  }, [isConnected]);
+
+  // Inscreve o consumidor para receber mensagens raw do firmware do ESP32.
+  // Essas mensagens podem ser estados de calibração, erros ou outros eventos.
+  const onRawMessageReceived = useCallback(
+    (callback: (message: string) => void) => {
+      return bluetoothService.onRawMessageReceived(callback);
+    },
+    [],
+  );
+
   const disconnect = useCallback(async () => {
     try {
       await bluetoothService.disconnect();
@@ -151,6 +177,8 @@ export const useBluetoothSensorData = (): UseBluetoothSensorDataReturn => {
     error,
     connect,
     disconnect,
+    sendCommand,
+    onRawMessageReceived,
     isSupported,
   };
 };

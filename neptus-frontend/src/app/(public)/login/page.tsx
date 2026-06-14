@@ -24,8 +24,7 @@ const LoginPage = () => {
         <span className="text-sm text-slate-500">Versão {packageJson.version}</span>
         <h1 className="font-semibold text-2xl">Entre em sua conta</h1>
         <p className="text-center text-muted-foreground text-sm">
-          Insira seu email e senha abaixo para entrar em sua conta, ou
-          cadastre-se
+          Insira seu email e senha abaixo para entrar em sua conta, ou cadastre-se.
         </p>
       </div>
 
