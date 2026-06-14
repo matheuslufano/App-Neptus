@@ -1,0 +1,37 @@
+name: neptus
+
+services:
+  frontend-dev:
+    image: frontend-dev:${IMAGE_TAG}
+    ports:
+      - "3000:3000"
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ./../src/:/app/src/
+      - ./../public/:/app/public/
+    secrets:
+      - env_secrets
+    profiles: [dev] 
+
+
+
+    
+
+  frontend-build:
+    image: frontend:${IMAGE_TAG}
+    ports:
+      - "80:80"
+      - "443:443"
+    build: 
+      context: ..
+      dockerfile: docker/BuildDockerfile
+    secrets:
+      - env_secrets
+    profiles: [build] ## docker compose --profile build up --build -d
+    # restart: unless-stopped
+
+secrets:
+  env_secrets:
+    file: ./.env  

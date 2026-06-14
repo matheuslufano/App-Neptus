@@ -1,0 +1,293 @@
+name: 🚀 Fluxo de CI - Pipeline de Build, tagueamento + Push da imagem para gerada no Docker Hub
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  validations:
+    name: 📋 Fazendo algumas validações importantes
+    runs-on: ubuntu-latest
+    steps:
+      - name: 👽 Clonando o Repositório da Aplicação
+        uses: actions/checkout@v5.0.0
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TAG_GITHUB_TOKEN }}
+
+      - name: 📋 Checando a existência dos arquivos obrigatórios
+        run: |
+          # Loop de verificação dos arquivos obrigatórios:
+          for file in Prod.dockerfile .build.env .deploy.env; do
+            if [ ! -f "$file" ]; then
+              echo "::error file=$file::Arquivo '$file' não encontrado!"
+              echo "⛔ Pipeline interrompida devido a arquivos faltantes. Parece que você não criou o arquivo '$file'. Caso tenha dúvida vá no Readme inical da Organização Princial!"
+              exit 1
+            fi
+          done          
+
+      - name: 📋 Verificando a existência dos Secrets obrigatórios 🔑
+        if: success()
+        run: |
+          if [ ! -n "${{ secrets.DOCKER_TOKEN_ACCESS }}" ]; then
+            echo "::error::⛔ Pipeline interrompida. Parece que você não criou o Secret 'DOCKER_TOKEN_ACCESS'. Caso tenha dúvida vá no Readme inical da Organização Princial!"
+            exit 1
+          fi
+          if [ ! -n "${{ secrets.TAG_GITHUB_TOKEN }}" ]; then
+            echo "::error::⛔ Pipeline interrompida. Parece que você não criou o Secret 'TAG_GITHUB_TOKEN'. Caso tenha dúvida vá no Readme inical da Organização Princial!"
+            exit 1
+          fi     
+          
+
+      - name: 📋 Verificando se o arquivo '.deploy.env' está com as informações obrigatórias necessárias...
+        if: success()
+        run: |
+          if ! grep -q "NOME_DO_PROJETO=" ".deploy.env"; then
+            echo "::error::⛔ Pipeline interrompida. Você precisa adicionar a variável 'NOME_DO_PROJETO' em seu arquivo: .deploy.env ."
+            exit 1
+          fi
+          
+
+          if ! grep -q "DOCKER_USERNAME=" ".deploy.env"; then
+            echo "::error::⛔ Pipeline interrompida. Você precisa adicionar a variável 'DOCKER_USERNAME' em seu arquivo: .deploy.env ."
+            exit 1
+          fi
+          
+
+          if ! grep -q "DOCKER_HUB_REPOSITORY_NAME=" ".deploy.env"; then
+            echo "::error::⛔ Pipeline interrompida. Você precisa adicionar a variável 'DOCKER_HUB_REPOSITORY_NAME' em seu arquivo: .deploy.env ."
+            exit 1
+          fi
+          
+
+          if ! grep -q "DOCKER_TOKEN_ACCESS=" ".deploy.env"; then
+            echo "::error::⛔ Pipeline interrompida. Você precisa adicionar a variável 'DOCKER_TOKEN_ACCESS' em seu arquivo: .deploy.env ."
+            exit 1
+          fi
+          
+          
+  tag:
+    name: 🔖 Criando a Tag Release
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.version-tag.outputs.VERSION }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5.0.0
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TAG_GITHUB_TOKEN }}
+    
+      - name: Definindo a Tag da versão (Tag Release)
+        id: version-tag
+        run: |
+          LAST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          echo "Última versão encontrada: $LAST_TAG"
+
+          if [[ -z "$LAST_TAG" ]]; then
+            NEW_VERSION="v1.0.0"
+          else
+            IFS='.' read -r MAJOR MINOR PATCH <<<"${LAST_TAG//v/}"
+            if [[ "$PATCH" -lt 10 ]]; then
+              PATCH=$((PATCH + 1))
+            else
+              PATCH=0
+              MINOR=$((MINOR + 1))
+            fi
+            if [[ "$MINOR" -eq 10 ]]; then
+              MINOR=0
+              MAJOR=$((MAJOR + 1))
+            fi
+
+            NEW_VERSION="v$MAJOR.$MINOR.$PATCH"
+          fi
+
+          echo "Nova versão: $NEW_VERSION"
+          echo "VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+
+  build-e-push-image-docker:
+    name: 🎂 Buildando e Postando a Imagem Docker do seu projeto
+    needs: [validations, tag]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 👽 Clonando o Repositório da Aplicação
+        uses: actions/checkout@v5.0.0
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TAG_GITHUB_TOKEN }}
+
+
+      - name: Criando e publicando nova tag no respositório do Usuário
+        env:
+          IMAGE_TAG: ${{ needs.tag.outputs.image_tag }}
+        run: |
+          git config --global user.name "[bot]-actions"
+          git config --global user.email "[bot]-actions@users.noreply.github.com"
+
+          git tag $IMAGE_TAG
+          # Publicando a nova tag no repositório do Github
+          # git push https://${{ github.actor }}:${{ secrets.TAG_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git $IMAGE_TAG
+          git push https://x-access-token:${{ secrets.TAG_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git $IMAGE_TAG
+
+
+      - name: Preparando tudo para a criação da Imagem da aplicação
+        run: |
+          resolved_env=".build.resolved.env"
+          cp .build.env $resolved_env
+
+          # Extraindo os placeholders no formato @NOME_SEGREDO@
+          vars=$(grep -oE '@[A-Z0-9_]+@' .build.env | tr -d '@' | sort -u)
+
+          # Secrets disponíveis em JSON
+          ALL_SECRETS='${{ toJson(secrets) }}'
+
+          for var in $vars; do
+            value=$(jq -r --arg key "$var" '.[$key]' <<< "$ALL_SECRETS")
+            if [ "$value" = "null" ]; then
+              echo "❌ Secret '$var' não encontrado no repositório!"
+              exit 1
+            fi
+
+            sed -i "s|@$var@|$value|g" $resolved_env
+          done
+
+
+      - name: Preparando dados para o Deploy
+        id: preparando-arquivo-deploy-secrets
+        run: |
+          resolved_deploy_env=".deploy.resolved.env"
+          cp .deploy.env $resolved_deploy_env
+
+          # Extraindo os placeholders no formato @NOME_SEGREDO@
+          vars=$(grep -oE '@[A-Z0-9_]+@' .deploy.env | tr -d '@' | sort -u)
+
+          # Secrets disponíveis em JSON
+          ALL_SECRETS='${{ toJson(secrets) }}'
+
+          for var in $vars; do
+            value=$(jq -r --arg key "$var" '.[$key]' <<< "$ALL_SECRETS")
+            if [ "$value" = "null" ]; then
+              echo "❌ Secret '$var' não encontrado no repositório!"
+              exit 1
+            fi
+
+            sed -i "s|@$var@|$value|g" $resolved_deploy_env
+            echo "${var}=${value}" >> $GITHUB_OUTPUT
+          done
+
+          
+      - name: Preparando variáveis complementares para Build e Deploy
+        id: deploy_env
+        run: |
+          while IFS=$'\n' read -r line; do
+            if [[ -n "$line" && "$line" != \#* ]]; then
+              IFS='=' read -r key value <<< "$line"
+                # echo "${key}=${value}"
+              echo "${key}=${value}" >> $GITHUB_OUTPUT
+            fi
+          done < .deploy.env
+
+
+      - name: ⛴️ Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ steps.deploy_env.outputs.DOCKER_USERNAME }}
+          password: ${{ steps.preparando-arquivo-deploy-secrets.outputs.DOCKER_TOKEN_ACCESS }}
+      
+
+      - name: 🐳 Build e push da imagem Docker
+        id: push-image-docker
+        uses: docker/build-push-action@v6.18.0
+        with:
+          context: .
+          file: ./Prod.dockerfile
+          build-args:
+            ENV_FILE=./.build.resolved.env
+          push: true
+          tags: |
+            ${{ steps.deploy_env.outputs.DOCKER_USERNAME }}/${{ steps.deploy_env.outputs.DOCKER_HUB_REPOSITORY_NAME }}:latest
+            ${{ steps.deploy_env.outputs.DOCKER_USERNAME }}/${{ steps.deploy_env.outputs.DOCKER_HUB_REPOSITORY_NAME }}:${{ needs.tag.outputs.image_tag }}
+                        
+
+            
+      - name: 📬 Preparando dados para repositório de Infra
+        env:
+            IMAGE_TAG: ${{ needs.tag.outputs.image_tag }}
+            NOME_PROJETO: ${{ steps.deploy_env.outputs.NOME_DO_PROJETO }}
+            DOCKER_USER: ${{ steps.deploy_env.outputs.DOCKER_USERNAME }}
+            REPOSITORIO_INFRA: "Deploy-to-RNP-K8s-Cluster/repoInfra"
+        run: |
+          PROJETO_PATH="projetos/$NOME_PROJETO/${{ steps.deploy_env.outputs.DOCKER_HUB_REPOSITORY_NAME }}"
+          
+          NOVA_SECRET="${DOCKER_USER}_DOCKER_TOKEN_ACCESS"
+          sed -i "s/DOCKER_TOKEN_ACCESS=@[^@]*@/DOCKER_TOKEN_ACCESS=@${NOVA_SECRET}@/g" .deploy.env
+          echo -e "\nTAG=$IMAGE_TAG" >> .deploy.env
+
+
+          echo ${{ secrets.TAG_GITHUB_TOKEN }}   | gh auth login --with-token
+          
+          # Criando diretório temporário
+          WORK_DIR="temp_repo_$(date +%s)"
+          mkdir "$WORK_DIR"
+          cd "$WORK_DIR"
+
+          # definindo a branch "main"
+          git config --global init.defaultBranch main
+          
+          # Inicializar repositório e adicionar repo remoto
+          git init
+          git remote add origin "https://${{ secrets.TAG_GITHUB_TOKEN }}@github.com/${REPOSITORIO_INFRA}.git"
+          
+          # Configurar sparse checkout para estrutura mínima
+          git config core.sparseCheckout true
+          echo "/*" > .git/info/sparse-checkout
+          echo "!/*/" >> .git/info/sparse-checkout
+          echo "/projetos/" >> .git/info/sparse-checkout
+          
+          # Fazer fetch e checkout
+          git pull origin main || echo "⚠️  Pull inicial falhou, continuando..."
+
+          # Criar estrutura de diretórios completa se não existir
+          echo "🔍 Verificando estrutura de diretórios..."
+          if [ ! -d "$PROJETO_PATH" ]; then
+            echo "📂 Criando estrutura: $PROJETO_PATH"
+            mkdir -p "$PROJETO_PATH"
+            
+            # Garantir que a pasta projetos está sendo rastreada
+            if [ ! -d "projetos" ]; then
+              mkdir -p "projetos"
+              touch "projetos/.gitkeep"
+            fi
+          fi
+
+          # Copiar arquivo
+          echo "📄 Copiando .deploy.env para $PROJETO_PATH/"
+          cp ../.deploy.env "$PROJETO_PATH/"        
+
+
+          # Commit e push
+          git add -A
+          if git diff --staged --quiet; then
+            echo "ℹ️  Nenhuma alteração para commitar"
+          else
+            git commit -m "feat: Adiciona .deploy.env em $PROJETO_PATH"
+            git push origin main
+            echo "✅ Arquivo enviado com sucesso!"
+          fi
+
+          # Limpeza
+          cd ..
+          rm -rf "$WORK_DIR"
+
+          # Criando Secret no Repo de Infra
+          gh secret set $NOVA_SECRET --body ${{ steps.preparando-arquivo-deploy-secrets.outputs.DOCKER_TOKEN_ACCESS }} --repo $REPOSITORIO_INFRA
+
