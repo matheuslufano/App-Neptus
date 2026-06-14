@@ -232,16 +232,17 @@ export default function Home() {
           />
         </div>
 
-
-        <div className="flex justify-center ">
-            <AppButton className="w-53"
-              variant="secondary"
-              size="lg"
-              onClick={() => router.push("/calibracao")}
-          >
-            Modo calibração
-          </AppButton>
-        </div>
+        { isConnected ? (
+          <div className="flex justify-center ">
+              <AppButton className="w-53"
+                variant="secondary"
+                size="lg"
+                onClick={() => router.push("/calibracao")}
+            >
+              Modo calibração
+            </AppButton>
+          </div>
+        ) : null }  
 
 
       </main>
