@@ -19,7 +19,7 @@ export const usePermissions = () => {
     canCreateUser: () => hasPermission("USUARIO_CRIAR"),
     canEditUser: () =>
       hasAllPermissions(["USUARIO_EDITAR", "USUARIO_DETALHAR"]),
-    canDeleteUser: () => hasPermission("USUARIO_STATUS"),
+    canDeleteUser: () => hasPermission("USUARIO_EXCLUIR"),
 
     canListProfiles: () => hasPermission("PERFIL_LISTAR"),
     canViewProfile: () => hasPermission("PERFIL_DETALHAR"),
