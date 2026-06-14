@@ -1,5 +1,3 @@
-import { AxiosError } from "axios";
-
 import api from "@/lib/axios";
 import {
   ApiProfile,
@@ -9,6 +7,12 @@ import {
 } from "@/types/profile-api-type";
 import { formatAndThrowError } from "@/utils/error-util";
 
+const normalizeProfile = (profile: ApiProfile): ApiProfile => ({
+  ...profile,
+  id: String(profile.id),
+  usuarios: profile.usuarios ?? profile.usuarios_count ?? 0,
+});
+
 export const getProfiles = async (
   page: number = 1,
   itemsPerPage: number = 10
@@ -16,11 +20,14 @@ export const getProfiles = async (
   try {
     const { data } = await api.get<ProfilesListResponse>("/v1/super/perfis", {
       params: {
-        pagina_atual: page,
-        itens_por_pagina: itemsPerPage,
+        page,
+        per_page: itemsPerPage,
       },
     });
-    return data;
+    return {
+      ...data,
+      perfis: data.perfis.map(normalizeProfile),
+    };
   } catch (error) {
     throw formatAndThrowError(error, "Erro ao buscar perfis");
   }
@@ -29,7 +36,7 @@ export const getProfiles = async (
 export const getProfileById = async (id: string): Promise<ApiProfile> => {
   try {
     const { data } = await api.get<ApiProfile>(`/v1/super/perfis/${id}`);
-    return data;
+    return normalizeProfile(data);
   } catch (error) {
     throw formatAndThrowError(error, "Erro ao buscar perfil");
   }
@@ -43,7 +50,7 @@ export const createProfile = async (
       "/v1/super/perfis",
       profileData
     );
-    return data;
+    return normalizeProfile(data);
   } catch (error) {
     throw formatAndThrowError(error, "Erro ao criar perfil");
   }
@@ -61,7 +68,7 @@ export const updateProfile = async (
       `/v1/super/perfis/${id}`,
       profileData
     );
-    return data;
+    return normalizeProfile(data);
   } catch (error) {
     throw formatAndThrowError(error, "Erro ao atualizar perfil");
   }

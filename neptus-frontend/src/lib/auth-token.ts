@@ -1,5 +1,3 @@
-import { getSession } from "next-auth/react";
-
 /**
  * Obtém o token de autenticação da sessão do NextAuth
  * @returns Promise<string | null> - O token de acesso ou null se não encontrado
@@ -10,6 +8,7 @@ export const getAuthToken = async (): Promise<string | null> => {
   }
 
   try {
+    const { getSession } = await import("next-auth/react");
     const session = await getSession();
 
     if (!session) {

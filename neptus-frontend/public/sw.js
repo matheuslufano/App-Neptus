@@ -2,10 +2,13 @@
 // Baseado na documentação oficial do Next.js + lógica personalizada
 
 // Versionamento do cache - incrementar quando houver mudanças importantes
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE_NAME = `neptus-${CACHE_VERSION}`;
 const STATIC_CACHE = `neptus-static-${CACHE_VERSION}`;
 const PAGE_CACHE = `neptus-pages-${CACHE_VERSION}`;
+const IS_LOCALHOST = ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(
+  self.location.hostname,
+);
 
 // Recursos essenciais que sempre devem estar disponíveis offline
 const ESSENTIAL_RESOURCES = [
@@ -37,6 +40,12 @@ function checkHasEverLoggedIn() {
 // Install event - cache recursos essenciais
 self.addEventListener("install", function (event) {
   console.log("SW: Instalando...");
+
+  if (IS_LOCALHOST) {
+    self.skipWaiting();
+    return;
+  }
+
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
@@ -55,6 +64,34 @@ self.addEventListener("install", function (event) {
 // Activate event - limpa caches antigos
 self.addEventListener("activate", function (event) {
   console.log("SW: Ativando...");
+
+  if (IS_LOCALHOST) {
+    event.waitUntil(
+      caches
+        .keys()
+        .then(function (cacheNames) {
+          return Promise.all(
+            cacheNames
+              .filter(function (cacheName) {
+                return (
+                  cacheName.includes("neptus") || cacheName.includes("workbox")
+                );
+              })
+              .map(function (cacheName) {
+                return caches.delete(cacheName);
+              }),
+          );
+        })
+        .then(function () {
+          return self.registration.unregister();
+        })
+        .then(function () {
+          return self.clients.claim();
+        }),
+    );
+    return;
+  }
+
   event.waitUntil(
     caches
       .keys()
@@ -91,6 +128,10 @@ self.addEventListener("message", function (event) {
 self.addEventListener("fetch", function (event) {
   // Ignora requests não HTTP/HTTPS
   if (!event.request.url.startsWith("http")) {
+    return;
+  }
+
+  if (IS_LOCALHOST) {
     return;
   }
 

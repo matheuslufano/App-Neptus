@@ -2,6 +2,7 @@
 
 import { Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { useTanks } from "@/hooks/useTanks";
 import { AddTankSchema } from "@/schemas/addTank-schema";
@@ -45,22 +46,24 @@ const TankItem = ({
   const capitalize = (str: string) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     try {
-      deleteTank(id);
-      console.log(`Tanque deletado: ${name}`);
+      await deleteTank(id);
+      toast.success("Tanque excluido com sucesso");
       setIsDeleteDialogOpen(false);
     } catch (error) {
+      toast.error("Erro ao excluir tanque");
       console.error("Erro ao deletar tanque:", error);
     }
   };
 
-  const handleEdit = (data: AddTankSchema) => {
+  const handleEdit = async (data: AddTankSchema) => {
     try {
-      updateTank(id, data);
-      console.log(`Tanque editado: ${name}`, data);
+      await updateTank(id, data);
+      toast.success("Tanque atualizado com sucesso");
       setIsEditDialogOpen(false);
     } catch (error) {
+      toast.error("Erro ao editar tanque");
       console.error("Erro ao editar tanque:", error);
     }
   };

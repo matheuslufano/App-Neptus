@@ -8,6 +8,7 @@ interface UserData {
   perfil_id: string;
   perfil_nome: string;
   permissoes: string[];
+  is_admin: boolean;
 }
 
 interface AppStore {
@@ -44,43 +45,49 @@ export const useAppStore = create<AppStore>()(
       // Permission helpers
       hasPermission: (permission: string) => {
         const { userData } = get();
-        if (!userData || !userData.permissoes) return false;
+        if (!userData) return false;
+        if (userData.is_admin) return true;
+        if (!userData.permissoes) return false;
 
         // Normalize to uppercase for comparison
         const normalizedPermissions = userData.permissoes.map((p) =>
-          p.toUpperCase()
+          p.toUpperCase(),
         );
         return normalizedPermissions.includes(permission.toUpperCase());
       },
 
       hasAnyPermission: (permissions: string[]) => {
         const { userData } = get();
-        if (!userData || !userData.permissoes) return false;
+        if (!userData) return false;
+        if (userData.is_admin) return true;
+        if (!userData.permissoes) return false;
 
         const normalizedPermissions = userData.permissoes.map((p) =>
-          p.toUpperCase()
+          p.toUpperCase(),
         );
         return permissions.some((p) =>
-          normalizedPermissions.includes(p.toUpperCase())
+          normalizedPermissions.includes(p.toUpperCase()),
         );
       },
 
       hasAllPermissions: (permissions: string[]) => {
         const { userData } = get();
-        if (!userData || !userData.permissoes) return false;
+        if (!userData) return false;
+        if (userData.is_admin) return true;
+        if (!userData.permissoes) return false;
 
         const normalizedPermissions = userData.permissoes.map((p) =>
-          p.toUpperCase()
+          p.toUpperCase(),
         );
         return permissions.every((p) =>
-          normalizedPermissions.includes(p.toUpperCase())
+          normalizedPermissions.includes(p.toUpperCase()),
         );
       },
     }),
     {
       name: "app-storage",
-    }
-  )
+    },
+  ),
 );
 
 // Backward compatibility - keep the old hook name

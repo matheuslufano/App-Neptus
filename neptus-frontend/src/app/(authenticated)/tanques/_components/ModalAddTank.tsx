@@ -22,10 +22,10 @@ const ModalAddTank = () => {
   const { addTank } = useTanks();
   const { isOnline } = useInternetConnection();
 
-  const handleAddTank = (data: AddTankSchema) => {
+  const handleAddTank = async (data: AddTankSchema) => {
     try {
-      addTank(data);
-      console.log("Tanque adicionado com sucesso:", data);
+      await addTank(data);
+      toast.success("Tanque adicionado com sucesso");
       setIsModalOpen(false);
     } catch (error) {
       if (error instanceof Error && error.message.includes("PropertyId")) {

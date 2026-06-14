@@ -2,9 +2,50 @@ import axios, { InternalAxiosRequestConfig } from "axios";
 import { ApiError } from "next/dist/server/api-utils";
 
 import { getAuthToken } from "./auth-token";
+import { API_BASE_URL } from "@/utils/api-util";
+
+type FastApiValidationError = {
+  loc?: Array<string | number>;
+  msg?: string;
+};
+
+type ApiErrorResponse = {
+  code?: string;
+  detail?: string | FastApiValidationError[];
+  message?: string;
+  status?: number;
+};
+
+const getApiErrorMessage = (data: unknown): string => {
+  if (!data) return "Erro desconhecido na API";
+  if (typeof data === "string") return data;
+
+  if (typeof data === "object") {
+    const errorData = data as ApiErrorResponse;
+
+    if (typeof errorData.message === "string") {
+      return errorData.message;
+    }
+
+    if (typeof errorData.detail === "string") {
+      return errorData.detail;
+    }
+
+    if (Array.isArray(errorData.detail)) {
+      return errorData.detail
+        .map((item) => {
+          const path = item.loc?.join(".") || "campo";
+          return `${path}: ${item.msg || "valor invalido"}`;
+        })
+        .join("; ");
+    }
+  }
+
+  return "Erro desconhecido na API";
+};
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -32,17 +73,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (axios.isAxiosError(error)) {
-      const apiError = error.response?.data || {
-        code: "api_error",
-        message: "Erro desconhecido na API",
-        status: 500,
-      };
+      const apiError = error.response?.data as ApiErrorResponse | undefined;
+      const status = apiError?.status || error.response?.status || 500;
+      const code = apiError?.code || "ApiError";
+      const message = getApiErrorMessage(apiError);
 
       return Promise.reject(
-        new ApiError(
-          apiError.status || error.response?.status,
-          `${apiError.code}: ${apiError.message}`,
-        ),
+        new ApiError(status, `${code}: ${message}`),
       );
     }
 

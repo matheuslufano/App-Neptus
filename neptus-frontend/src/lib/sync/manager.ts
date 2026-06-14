@@ -132,7 +132,7 @@ export class SyncManager {
       const readings: Reading[] = apiReadings.map((apiReading) => ({
         id: apiReading.id,
         propertyId: this.propertyId!,
-        tankId: apiReading.id_tanque,
+        tankId: apiReading.tanque_id ?? apiReading.id_tanque ?? "",
         turbidez: apiReading.turbidez,
         temperatura: apiReading.temperatura,
         ph: apiReading.ph,

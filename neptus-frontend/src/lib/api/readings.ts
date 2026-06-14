@@ -1,17 +1,20 @@
 import api from "@/lib/axios";
+import { toApiId } from "@/utils/api-util";
 
 export interface ReadingFromAPI {
   id: string;
-  tanque: string;
+  tanque_id: string;
+  id_tanque?: string;
   turbidez: number;
   temperatura: number;
   ph: number;
   oxigenio: number;
   amonia: number;
-  imagem_cor: string;
+  cor_agua?: number;
+  imagem_cor?: string;
   criado_em: string;
   atualizado_em: string;
-  usuario_id: string;
+  usuario_id?: string;
 }
 
 export interface ReadingsResponse {
@@ -22,46 +25,50 @@ export interface ReadingsResponse {
   itens_por_pagina: number;
 }
 
-/**
- * Busca leituras do servidor com paginação
- * @param tankId - ID do tanque para filtrar
- * @param page - Número da página (padrão: 1)
- * @param perPage - Quantidade de itens por página (padrão: 50)
- */
+const normalizeReading = (reading: ReadingFromAPI): ReadingFromAPI => ({
+  ...reading,
+  id: String(reading.id),
+  tanque_id: String(reading.tanque_id ?? reading.id_tanque),
+  turbidez: Number(reading.turbidez),
+  temperatura: Number(reading.temperatura ?? 0),
+  ph: Number(reading.ph ?? 0),
+  oxigenio: Number(reading.oxigenio ?? 0),
+  amonia: Number(reading.amonia ?? 0),
+  cor_agua: reading.cor_agua !== undefined ? Number(reading.cor_agua) : undefined,
+});
+
 export async function getReadings(
   tankId: string,
   page = 1,
-  perPage = 50
+  perPage = 50,
 ): Promise<ReadingsResponse> {
-  try {
-    const response = await api.get<ReadingsResponse>("/v1/leituras", {
+  const response = await api.get<ReadingsResponse>(
+    `/v1/tanques/${toApiId(tankId)}/leituras`,
+    {
       params: {
-        tanque_id: tankId,
         page,
         per_page: perPage,
       },
-    });
+    },
+  );
 
-    return response.data;
-  } catch (error) {
-    console.error("Erro ao buscar leituras:", error);
-    throw error;
-  }
+  return {
+    ...response.data,
+    leituras: response.data.leituras.map(normalizeReading),
+  };
 }
 
-/**
- * Converte leitura do API para formato local
- */
 export function convertAPIReadingToLocal(reading: ReadingFromAPI) {
   return {
-    id: reading.id,
-    propertyId: "", // Será preenchido pelo contexto
-    tankId: reading.tanque,
-    turbidez: reading.turbidez,
-    temperatura: reading.temperatura,
-    ph: reading.ph,
-    oxigenio: reading.oxigenio,
-    amonia: reading.amonia,
+    id: String(reading.id),
+    propertyId: "",
+    tankId: String(reading.tanque_id ?? reading.id_tanque),
+    turbidez: Number(reading.turbidez),
+    temperatura: Number(reading.temperatura ?? 0),
+    ph: Number(reading.ph ?? 0),
+    oxigenio: Number(reading.oxigenio ?? 0),
+    amonia: Number(reading.amonia ?? 0),
+    cor_agua: reading.cor_agua,
     imagem_cor: reading.imagem_cor,
     createdAt: new Date(reading.criado_em),
     updatedAt: new Date(reading.atualizado_em),
