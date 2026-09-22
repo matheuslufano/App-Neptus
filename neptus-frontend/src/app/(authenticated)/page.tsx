@@ -50,9 +50,6 @@ export default function Home() {
   const [lastSampleData, setLastSampleData] = useState<LastSampleData | null>(
     null,
   );
-  
-  const { selectedPropertyId } = usePropertyStore();
-
   const { selectedPropertyId } = usePropertyStore();
 
   const [storedData, setStoredData] = useState<{
