@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Inter", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-placeholder: var(--placeholder);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    --font-size: 16px;
+    --primary: oklch(0.59 0.2135 258.37);
+    --primary-foreground: oklch(0.984 0.0075 247.858);
+    --secondary: oklch(0.69 0.1637 37.55);
+    --secondary-foreground: oklch(0.984 0.0075 247.858);
+    --background: oklch(0.983 0.0225 247.912);
+    --foreground: oklch(0.207 0.095 265.069);
+    --card: oklch(0.983 0.0225 247.912);
+    --card-foreground: oklch(0.191 0 89.876);
+    --popover: oklch(0.983 0.0225 247.912);
+    --popover-foreground: oklch(0.207 0.095 265.069);
+    --muted: oklch(0.96 0.0193 240.73);
+    --muted-foreground: oklch(0.68 0.0628 256.36);
+    --placeholder: oklch(67.916% 0.06299 256.384 / 0.589);
+    --accent: oklch(0.946 0.0625 249.952);
+    --accent-foreground: oklch(0.207 0.095 265.069);
+    --destructive: oklch(0.63 0.1776 23.72);
+    --error: oklch(0.57 0.2234 28.21);
+    --warning: oklch(0.78 0.157 100.74);
+    --success: oklch(0.74 0.1679 143.47);
+    --destructive-foreground: oklch(0.984 0.0075 247.858);
+    --border: oklch(0.926 0.0325 255.508);
+    --input: oklch(0.926 0.0325 255.508);
+    --ring: oklch(0.57 0.2081 266.76);
+  }
+
+  .dark {
+    --primary: oklch(0.498 0.5425 262.713);
+    --primary-foreground: oklch(0.984 0.0075 247.858);
+    --secondary: oklch(0.66 0.1781 37.41);
+    --secondary-foreground: oklch(0.984 0.0075 247.858);
+    --background: oklch(0.108 0.055 233.508);
+    --foreground: oklch(0.93 0.0475 265.98);
+    --card: oklch(0.108 0.055 233.508);
+    --card-foreground: oklch(0.958 0 89.876);
+    --popover: oklch(0.108 0.055 233.508);
+    --popover-foreground: oklch(0.93 0.0475 265.98);
+    --muted: oklch(0.142 0.03 244.935);
+    --muted-foreground: oklch(0.731 0.065 257.66);
+    --placeholder: oklch(67.916% 0.06299 256.384 / 0.589);
+    --accent: oklch(0.164 0.1 247.137);
+    --accent-foreground: oklch(0.93 0.0475 265.98);
+    --destructive: oklch(0.505 0.5 28.436);
+    --destructive-foreground: oklch(0.984 0.0075 247.858);
+    --border: oklch(0.198 0.0475 255.74);
+    --input: oklch(0.198 0.0475 255.74);
+    --ring: oklch(0.498 0.5425 262.713);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-size: var(--font-size);
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+  *::placeholder {
+    @apply !text-placeholder;
+  }
+
+  /* Previne que o Radix Dialog/Sheet adicione padding ao body */
+  body {
+    padding-right: 0 !important;
+  }
+
+  /* Garante que o header e main não sejam afetados quando o Sheet abre */
+  header,
+  main {
+    transition: none !important;
+  }
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter_18pt-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter_18pt-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter_18pt-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter_18pt-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
