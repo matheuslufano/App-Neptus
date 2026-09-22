@@ -1,0 +1,50 @@
+# Arquivos de documentação
+README.md
+*.md
+
+# Arquivos de configuração do projeto
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Arquivos temporários
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+
+# Arquivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de backup
+*.backup
+*.bak
+
+# Pasta do Docker e arquivos do Docker:
+docker/.env.example
+docker/BuildDockerfile
+docker/compose.yaml
+docker/Dockerfile
+docker/README.md
+
+# Node Modules
+node_modules/
+npm-debug.log
+
+# arquivos do Nest.Js
+.next
+!.next/static
+!.next/standalone
+
+# Arquivos dos Pipelines (Workflows)
+.github/
