@@ -11,6 +11,7 @@ export const errorCodes = {
 export const getFriendlyMessage = (error: ApiError | Error): string => {
   const [code, ...messageParts] = error.message.split(":");
   const rawMessage = messageParts.join(":").trim();
+  const normalizedMessage = rawMessage.toLowerCase();
 
   const messages: Record<string, string> = {
     [errorCodes.INVALID_CREDENTIALS_ERROR]:
@@ -22,6 +23,29 @@ export const getFriendlyMessage = (error: ApiError | Error): string => {
     [errorCodes.USER_DISABLED_ERROR]:
       "Usuário está desativado, entre em contato com o suporte",
   };
+
+  if (
+    normalizedMessage.includes("body.email") &&
+    normalizedMessage.includes("valid email address")
+  ) {
+    return "Informe um e-mail válido. Evite domínios reservados, como .local.";
+  }
+
+  if (normalizedMessage.includes("permissões inválidas")) {
+    return "Há permissões inválidas no perfil. Revise as permissões selecionadas.";
+  }
+
+  if (normalizedMessage.includes("email já cadastrado")) {
+    return "Este e-mail já está cadastrado.";
+  }
+
+  if (error instanceof ApiError && error.statusCode === 401) {
+    return "Sua sessão expirou ou você não tem autorização. Faça login novamente.";
+  }
+
+  if (error instanceof ApiError && error.statusCode === 403) {
+    return "Você não tem permissão para realizar esta ação.";
+  }
 
   return messages[code] ?? (rawMessage || error.message);
 };

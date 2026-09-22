@@ -3,6 +3,7 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FileSpreadsheet, FileText, Share } from "lucide-react";
+import { useSession } from "next-auth/react";
 import React, { useMemo, useState } from "react";
 import { DateRange } from "react-day-picker";
 
@@ -29,9 +30,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTanks } from "@/hooks/useTanks";
 import { readingsDb } from "@/lib/db";
+import { syncManager } from "@/lib/sync/manager";
 import { TurbidityFormSchema } from "@/schemas/turbidity-schema";
+import { updateReading } from "@/services/readings-service";
 import { usePropertyStore } from "@/stores/propertyStore";
+import { parseErrorMessage } from "@/utils/error-util";
 import { getQualityColor } from "@/utils/turbidity-util";
+import { toast } from "sonner";
 
 // Tipo para os dados mapeados para exibição
 interface HistoryItem {
@@ -58,13 +63,20 @@ const History = () => {
   const [selectedItemId, setSelectedItemId] = useState<string>("");
   const [historyData, setHistoryData] = useState<HistoryItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
-  const { tanks } = useTanks();
+  const { tanks, isLoading: isLoadingTanks } = useTanks();
   const { selectedPropertyId } = usePropertyStore();
+  const { data: session } = useSession();
 
   const fetchHistory = React.useCallback(async () => {
-    if (!selectedPropertyId) return;
+    if (!selectedPropertyId || !session?.access_token || isLoadingTanks) {
+      if (!selectedPropertyId) setHistoryData([]);
+      return;
+    }
 
     try {
+      syncManager.setCredentials(session.access_token, selectedPropertyId);
+      await syncManager.syncReadingsFromServer();
+
       const readings = await readingsDb.getByProperty(selectedPropertyId);
       const mapped = readings.map((r): HistoryItem => {
         const tank = tanks.find((t) => t.id === r.tankId);
@@ -97,7 +109,7 @@ const History = () => {
     } catch (error) {
       console.error("Erro ao buscar histórico via Dexie:", error);
     }
-  }, [tanks, selectedPropertyId]);
+  }, [isLoadingTanks, session?.access_token, tanks, selectedPropertyId]);
 
   React.useEffect(() => {
     fetchHistory();
@@ -121,20 +133,49 @@ const History = () => {
   const handleEditSubmit = async (data: TurbidityFormSchema) => {
     if (!selectedItem) return;
 
-    await readingsDb.update(selectedItem.id, {
-      tankId: data.tanque,
-      oxigenio: data.oxigenio,
-      temperatura: data.temperatura,
-      ph: data.ph,
-      amonia: data.amonia,
-      cor_agua: data.cor_agua,
-      // Se estava com erro e foi editado, tentar dar override para sync novamente
-      syncStatus: "pending",
-    });
+    if (!session?.access_token) {
+      toast.error("Sua sessão expirou. Faça login novamente para salvar a amostra.");
+      return;
+    }
 
-    await fetchHistory();
-    setIsEditDialogOpen(false);
-    setSelectedItem(null);
+    if (data.tanque !== selectedItem.tankId) {
+      toast.error("Não é possível mover uma amostra para outro tanque ao editá-la.");
+      return;
+    }
+
+    try {
+      const updatedReading = await updateReading(
+        selectedItem.id,
+        {
+          oxigenio: data.oxigenio,
+          temperatura: data.temperatura,
+          ph: data.ph,
+          amonia: data.amonia,
+          cor_agua: data.cor_agua,
+        },
+        session.access_token,
+      );
+
+      await readingsDb.update(selectedItem.id, {
+        oxigenio: updatedReading.oxigenio,
+        temperatura: updatedReading.temperatura,
+        ph: updatedReading.ph,
+        amonia: updatedReading.amonia,
+        cor_agua: updatedReading.cor_agua,
+        syncStatus: "synced",
+        syncedAt: new Date(),
+        errorMessage: undefined,
+        updatedAt: new Date(updatedReading.atualizado_em),
+      });
+
+      await fetchHistory();
+      setIsEditDialogOpen(false);
+      setSelectedItem(null);
+      toast.success("Amostra atualizada com sucesso.");
+    } catch (error) {
+      console.error("Erro ao atualizar amostra:", error);
+      toast.error(parseErrorMessage(error));
+    }
   };
 
   // Função auxiliar para converter string de data DD/MM/AAAA ou DD/MM/AA para Date

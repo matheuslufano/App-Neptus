@@ -31,6 +31,15 @@ export interface GetReadingsParams {
   page?: number;
 }
 
+export interface UpdateReadingRequest {
+  turbidez?: number;
+  temperatura?: number;
+  ph?: number;
+  oxigenio?: number;
+  amonia?: number;
+  cor_agua?: number;
+}
+
 const getAuthHeaders = (accessToken?: string) =>
   accessToken
     ? {
@@ -106,4 +115,22 @@ export const getAllReadingsByTank = async (
   }
 
   return allReadings;
+};
+
+export const updateReading = async (
+  readingId: string,
+  reading: UpdateReadingRequest,
+  accessToken?: string,
+): Promise<ReadingFromAPI> => {
+  try {
+    const { data } = await api.put<ReadingFromAPI>(
+      `/v1/leituras/${toApiId(readingId)}`,
+      reading,
+      { headers: getAuthHeaders(accessToken) },
+    );
+
+    return normalizeReading(data);
+  } catch (error) {
+    throw formatAndThrowError(error, "Erro ao atualizar a amostra no servidor");
+  }
 };

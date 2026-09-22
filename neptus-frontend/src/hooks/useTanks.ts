@@ -113,8 +113,10 @@ export const useTanks = () => {
   }, [loadTanks]);
 
   const addTank = useCallback(
-    async (tankData: AddTankSchema) => {
-      if (!selectedPropertyId) {
+    async (tankData: AddTankSchema, propertyId?: string) => {
+      const targetPropertyId = propertyId ?? selectedPropertyId;
+
+      if (!targetPropertyId) {
         throw new Error("PropertyId nao configurado");
       }
 
@@ -125,7 +127,7 @@ export const useTanks = () => {
       const apiTank = await createTankRequest(
         {
           nome: tankData.name,
-          id_propriedade: selectedPropertyId,
+          id_propriedade: targetPropertyId,
           id_usuario: session.user.id,
           area_tanque: tankData.tankArea,
           tipo_peixe: tankData.fish,

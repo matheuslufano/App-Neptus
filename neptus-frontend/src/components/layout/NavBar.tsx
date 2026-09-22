@@ -8,9 +8,11 @@ import {
   MenuIcon,
   RefreshCcw,
   Shield,
+  UserRound,
   Users,
   Waves,
 } from "lucide-react";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -74,6 +76,14 @@ const NavBar = () => {
 
   // Buscar dados do usuário logado
   const { data: user, isLoading } = useUserById(userId || "", !!userId);
+  const userName = user?.nome ?? session?.user?.nome ?? "Usuário";
+  const userInitials = userName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name[0])
+    .join("")
+    .toUpperCase();
 
   const handleLinkClick = () => {
     setIsOpen(false);
@@ -132,8 +142,35 @@ const NavBar = () => {
           className="w-[250px] gap-0"
           aria-describedby="menu"
         >
-          <SheetHeader>
-            <SheetTitle className="py-4 text-xl">Menu</SheetTitle>
+          <SheetHeader className="items-center border-b px-4 py-5 text-center">
+            <Image
+              src="/images/neptus-azul.svg"
+              alt="Logo Neptus"
+              width={100}
+              height={25}
+              className="h-auto w-[100px]"
+              priority
+            />
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <div
+                className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground"
+                aria-label={`Avatar de ${userName}`}
+              >
+                {userInitials ? (
+                  userInitials
+                ) : (
+                  <UserRound className="size-5" aria-hidden />
+                )}
+              </div>
+              <div className="min-w-0 max-w-full">
+                <SheetTitle className="truncate text-sm">
+                  {userName}
+                </SheetTitle>
+                <p className="truncate text-xs text-muted-foreground">
+                  {session?.user?.email ?? "Usuário conectado"}
+                </p>
+              </div>
+            </div>
           </SheetHeader>
           <div className="flex flex-col justify-between h-full pb-10">
             <div className="flex flex-col gap-2">

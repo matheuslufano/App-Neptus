@@ -35,6 +35,7 @@ import {
 } from "@/hooks/useProfiles";
 import { cn } from "@/lib/utils";
 import { ApiProfile } from "@/types/profile-api-type";
+import { parseErrorMessage } from "@/utils/error-util";
 
 type PermissionDef = { id: string; label: string };
 
@@ -131,7 +132,7 @@ interface ProfileDialogProps {
 }
 
 function normalizePermissionSet(permissoes: string[]) {
-  return new Set(permissoes);
+  return new Set(permissoes.map((permissao) => permissao.toLowerCase()));
 }
 
 export const ProfileDialog = ({
@@ -209,8 +210,8 @@ export const ProfileDialog = ({
         toast.success("Perfil criado com sucesso!");
       }
       onOpenChange(false);
-    } catch {
-      toast.error("Erro ao salvar perfil");
+    } catch (error) {
+      toast.error(parseErrorMessage(error));
     }
   };
 
@@ -220,13 +221,17 @@ export const ProfileDialog = ({
       await deleteProfile.mutateAsync(profile.id);
       toast.success("Perfil excluído com sucesso!");
       onOpenChange(false);
-    } catch {
-      toast.error("Erro ao excluir perfil");
+    } catch (error) {
+      toast.error(parseErrorMessage(error));
     }
   };
 
   const setPermissions = (next: string[]) => {
-    form.setValue("permissoes", next, {
+    const normalizedPermissions = Array.from(
+      new Set(next.map((permission) => permission.toLowerCase())),
+    );
+
+    form.setValue("permissoes", normalizedPermissions, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
@@ -244,16 +249,18 @@ export const ProfileDialog = ({
 
   const selectAllInGroup = (group: PermissionGroup) => {
     const ids = group.permissions.map((p) => p.id);
-    const current = new Set(
-      form.getValues("permissoes").map((p) => p.toUpperCase()),
-    );
+    const current = normalizePermissionSet(form.getValues("permissoes"));
     ids.forEach((id) => current.add(id));
     setPermissions([...current]);
   };
 
   const clearAllInGroup = (group: PermissionGroup) => {
     const remove = new Set(group.permissions.map((p) => p.id));
-    setPermissions(form.getValues("permissoes").filter((p) => !remove.has(p)));
+    setPermissions(
+      form
+        .getValues("permissoes")
+        .filter((permission) => !remove.has(permission.toLowerCase())),
+    );
   };
 
   const countSelectedInGroup = (group: PermissionGroup) =>
