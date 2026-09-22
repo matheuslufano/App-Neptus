@@ -8,7 +8,6 @@ import {
   MenuIcon,
   RefreshCcw,
   Shield,
-  UserRound,
   Users,
   Waves,
 } from "lucide-react";
@@ -77,13 +76,8 @@ const NavBar = () => {
   // Buscar dados do usuário logado
   const { data: user, isLoading } = useUserById(userId || "", !!userId);
   const userName = user?.nome ?? session?.user?.nome ?? "Usuário";
-  const userInitials = userName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((name) => name[0])
-    .join("")
-    .toUpperCase();
+  const userProfile =
+    user?.perfil_nome ?? session?.user?.perfil ?? "Perfil não informado";
 
   const handleLinkClick = () => {
     setIsOpen(false);
@@ -139,7 +133,7 @@ const NavBar = () => {
         </SheetTrigger>
         <SheetContent
           side="left"
-          className="w-[250px] gap-0"
+          className="w-[250px] gap-0 overflow-y-auto scrollbar-hidden"
           aria-describedby="menu"
         >
           <SheetHeader className="items-center border-b px-4 py-5 text-center">
@@ -152,22 +146,20 @@ const NavBar = () => {
               priority
             />
             <div className="mt-4 flex flex-col items-center gap-2">
-              <div
-                className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground"
-                aria-label={`Avatar de ${userName}`}
-              >
-                {userInitials ? (
-                  userInitials
-                ) : (
-                  <UserRound className="size-5" aria-hidden />
-                )}
-              </div>
+              <Image
+                src="/images/default-user-avatar.gif"
+                alt={`Avatar de ${userName}`}
+                width={64}
+                height={64}
+                className="size-16 shrink-0 rounded-full object-cover"
+                unoptimized
+              />
               <div className="min-w-0 max-w-full">
                 <SheetTitle className="truncate text-sm">
                   {userName}
                 </SheetTitle>
                 <p className="truncate text-xs text-muted-foreground">
-                  {session?.user?.email ?? "Usuário conectado"}
+                  Usuário: {userProfile}
                 </p>
               </div>
             </div>
