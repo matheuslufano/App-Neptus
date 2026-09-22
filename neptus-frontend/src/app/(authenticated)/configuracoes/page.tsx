@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useRouter } from "next/navigation";
+import AppButton from "@/components/AppButton";
 import InstallAppButton, { InstallInfo } from "@/components/InstallAppButton";
 import IOSInstallInfo from "@/components/IOSInstallInfo";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -12,6 +14,7 @@ import { useUserById } from "@/hooks/useUsers";
 import { getUserIdFromToken } from "@/utils/jwt-util";
 
 const Configurations = () => {
+  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
 
   // Obter ID do usuário do token JWT
@@ -87,6 +90,16 @@ const Configurations = () => {
                       ))}
                     </div>
                   )}
+                </div>
+
+                <div className="pt-4 border-t mt-4">
+                  <AppButton
+                    onClick={() => router.push("/calibracao")}
+                    className="w-full"
+                    variant="secondary"
+                  >
+                    Abrir Tela de Calibração
+                  </AppButton>
                 </div>
               </div>
             </div>

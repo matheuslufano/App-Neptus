@@ -1,7 +1,8 @@
 "use client";
 
-import { BluetoothIcon, Save, Settings } from "lucide-react";
+import { BluetoothIcon, Save, Settings, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import AppButton from "@/components/AppButton";
 import BluetoothConfig from "@/components/BluetoothConfig";
@@ -56,8 +57,9 @@ export default function Home() {
     turbidityValue: number;
     timestamp: string;
   } | null>(null);
-
-  // Função para buscar o último registro de amostra
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const router = useRouter();
+  
   // Função para buscar o último registro de amostra
   const fetchLastSampleData = useCallback(async () => {
     try {
@@ -117,6 +119,23 @@ export default function Home() {
     setStoredData({ turbidityValue, timestamp: new Date().toISOString() });
   };
 
+  const handleRefreshSensorData = async () => {
+    setIsRefreshing(true);
+    const start = Date.now();
+    try {
+      await refetch();
+    } catch (error) {
+      console.error("Erro ao atualizar leitura do sensor:", error);
+    } finally {
+      const minDuration = 600;
+      const elapsed = Date.now() - start;
+      if (elapsed < minDuration) {
+        await new Promise((resolve) => setTimeout(resolve, minDuration - elapsed)); 
+      }
+      setIsRefreshing(false);
+    }
+  };
+
   if (authLoading) {
     return <LoadingFullScreen />;
   }
@@ -129,7 +148,7 @@ export default function Home() {
           description={getLastUpdatedText()}
         />
 
-        {isConnected ? (
+       {isConnected ? (
           <div className="space-y-3">
             <TurbidityDisplay turbidityValue={turbidityValue} />
 
@@ -143,8 +162,22 @@ export default function Home() {
                 <Save />
                 Registrar e continuar
               </AppButton>
-
               <AppButton
+                className="flex-1"
+                variant="outline"
+                size="lg"
+                onClick={handleRefreshSensorData}
+                disabled={isLoading || isRefreshing}
+                aria-label="Atualizar leitura"
+              >
+                <RotateCw 
+                  className={
+                    isRefreshing ? "animate-spin" : undefined
+                  }
+                />
+              </AppButton>
+              <AppButton
+                className="flex-1"
                 variant="outline"
                 size="lg"
                 onClick={() => setIsBluetoothConfigOpen(true)}
@@ -197,6 +230,20 @@ export default function Home() {
             className="col-span-1"
           />
         </div>
+
+        { isConnected ? (
+          <div className="flex justify-center ">
+              <AppButton className="w-53"
+                variant="secondary"
+                size="lg"
+                onClick={() => router.push("/calibracao")}
+            >
+              Modo calibração
+            </AppButton>
+          </div>
+        ) : null }  
+
+
       </main>
 
       <AdditionalParameters
@@ -210,6 +257,7 @@ export default function Home() {
         onClose={() => setIsBluetoothConfigOpen(false)}
         onSuccess={() => setIsBluetoothConfigOpen(false)}
       />
+    
     </>
   );
 }

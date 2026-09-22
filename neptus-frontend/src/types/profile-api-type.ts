@@ -8,6 +8,7 @@ export interface ApiProfile {
   nome: string;
   permissoes: string[];
   usuarios: number;
+  usuarios_count?: number;
   criado_em: string;
   atualizado_em: string;
 }

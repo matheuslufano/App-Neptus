@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from uuid import UUID
+
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -11,7 +11,7 @@ from app.exceptions.app_request_Exception import AppRequestError
 
 
 def listar_auditorias(
-    user_id: Optional[UUID] = Query(
+    user_id: Optional[int] = Query(
         None,
         title="ID do usuário",
         description="Filtra auditorias realizadas por esse usuário"
@@ -54,7 +54,7 @@ def listar_auditorias(
     try:
         return AuditService.list_audits(
             db=db,
-            user_id=str(user_id) if user_id else None,
+            user_id=user_id,
             entity_name=entity_name,
             operation=operation,
             start_date=start_date,
@@ -67,12 +67,12 @@ def listar_auditorias(
 
 
 def buscar_auditoria(
-    audit_id: UUID,
+    audit_id: int,
     db: Session = Depends(get_db),
     admin: Usuario = Depends(get_admin_user)
 ):
     try:
-        auditoria = AuditService.get_audit(db, str(audit_id))
+        auditoria = AuditService.get_audit(db, audit_id)
         if not auditoria:
             raise HTTPException(status_code=404, detail="Auditoria não encontrada")
         return auditoria

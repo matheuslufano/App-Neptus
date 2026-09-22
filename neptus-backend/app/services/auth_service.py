@@ -48,7 +48,7 @@ class AuthService:
 
     @staticmethod
     def refresh_token(db: Session, user_id: str):
-        usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+        usuario = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
         if not usuario:
             raise NotFoundRequestError("Usuário nao encontrado")
         if not usuario.esta_ativo:

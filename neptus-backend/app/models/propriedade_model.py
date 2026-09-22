@@ -1,18 +1,18 @@
 from datetime import datetime, timezone
-import uuid
+
 from app.database import db
 from app.models.utils.associacoes import propriedade_usuarios
 
 class Propriedade(db.Model):
   __tablename__ = 'propriedade'
-  id = db.Column(db.Uuid, primary_key=True, default=uuid.uuid4)
+  id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   nome = db.Column(db.String(50), unique=True, nullable=False)
   usuarios = db.relationship('Usuario',
                              secondary=propriedade_usuarios,
                              back_populates='propriedades',
                              overlaps="propriedades,perfis",
                              lazy='selectin')
-  proprietario_id = db.Column(db.Uuid, db.ForeignKey('usuario.id'))
+  proprietario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'))
   proprietario = db.relationship('Usuario', foreign_keys=[proprietario_id], lazy='selectin')
   criado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
   atualizado_em = db.Column(db.DateTime,
@@ -21,9 +21,9 @@ class Propriedade(db.Model):
 
   def to_dict(self, include_usuarios=True):
     data = {
-        'id': str(self.id),
+        'id': self.id,
         'nome': self.nome,
-        'proprietario_id': str(self.proprietario_id) if self.proprietario_id else None,
+        'proprietario_id': self.proprietario_id,
         'proprietario_nome': self.proprietario.nome if self.proprietario else None,
         'total_usuarios': len(self.usuarios),
         'criado_em': self.criado_em.isoformat() if self.criado_em else None,

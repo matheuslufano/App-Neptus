@@ -2,6 +2,20 @@
 
 Bem-vindo ao projeto Neptus! Este arquivo `README.md` foi criado para ajudar novos desenvolvedores, especialmente iniciantes, a entenderem a estrutura, o funcionamento e como contribuir para este projeto.
 
+## LINKS PARA DOCUMENTAÇÃO:
+
+--> Pasta oficial:
+https://drive.google.com/drive/folders/12EKN4DHmBUNjuJaS16_m3EJzdG5v6y5W?usp=sharing
+
+--> Documento oficial:
+https://docs.google.com/document/d/1OXCb044vwiNlX4TdmWPa-_DmhldYowfD/edit?usp=sharing&ouid=114566353487533288875&rtpof=true&sd=true
+
+--> Link para o protótipo no Figma:
+https://www.figma.com/design/BMLCsWKwIqm7CJOwbDVQta/Neptus?node-id=73-664&t=Xxj3lAQflCjpCBvC-1
+
+--> Link para variaveis de ambiente:
+https://drive.google.com/drive/folders/1Cc_G9vHfJG7V4LQOiA9A6NgQXxUb2CdH?usp=sharing
+
 ## 🌊 O Que é o Neptus?
 
 O Neptus é uma aplicação web moderna desenvolvida para monitorar a qualidade da água em tanques de peixes. Ele se comunica com sensores (como o ESP32) para coletar dados em tempo real sobre parâmetros cruciais como turbidez, temperatura, pH, e oxigênio dissolvido.

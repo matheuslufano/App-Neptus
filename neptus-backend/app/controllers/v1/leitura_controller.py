@@ -6,10 +6,10 @@ from app.models.usuario_model import Usuario
 from app.services.leitura_service import LeituraService
 from app.schemas.leitura_schema import Leitura, LeituraCreate, LeituraUpdate
 from app.exceptions.app_request_Exception import AppRequestError
-from uuid import UUID
+
 
 def listar_leituras(
-    tanque_id: UUID, 
+    tanque_id: int, 
     db: Session = Depends(get_db), 
     current_user: Usuario = Depends(get_current_user),
     page: int = 1, 
@@ -26,7 +26,7 @@ def listar_leituras(
         raise HTTPException(status_code=e.status_code, detail=e.message)
     
 def buscar_leitura(
-    leitura_id: UUID, 
+    leitura_id: int, 
     db: Session = Depends(get_db), 
     current_user: Usuario = Depends(get_current_user)
 ):
@@ -59,13 +59,13 @@ def criar_leitura(
             data.ph, 
             data.amonia, 
             data.cor_agua,
-            performed_by_id=str(current_user.id)
+            performed_by_id=current_user.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     
 def atualizar_leitura(
-    leitura_id: UUID, 
+    leitura_id: int, 
     data: LeituraUpdate, 
     db: Session = Depends(get_db), 
     current_user: Usuario = Depends(get_current_user)
@@ -80,13 +80,13 @@ def atualizar_leitura(
             db,
             leitura_id,
             data.model_dump(exclude_unset=True),
-            performed_by_id=str(current_user.id)
+            performed_by_id=current_user.id
         )
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     
 def deletar_leitura(
-    leitura_id: UUID, 
+    leitura_id: int, 
     db: Session = Depends(get_db), 
     current_user: Usuario = Depends(get_current_user)
 ):
@@ -94,7 +94,7 @@ def deletar_leitura(
     Remove uma leitura do sistema.
     """
     try:
-        LeituraService.deletar_leitura(db, leitura_id, performed_by_id=str(current_user.id))
+        LeituraService.deletar_leitura(db, leitura_id, performed_by_id=current_user.id)
         return {"message": "Leitura deletada com sucesso"}
     except AppRequestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

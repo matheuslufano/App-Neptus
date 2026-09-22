@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import Optional, List
-from uuid import UUID
+
 from pydantic import BaseModel
 
 class AuditBase(BaseModel):
     entity_name: str
     entity_id: Optional[str] = None
     operation: str
-    user_id: Optional[UUID] = None
+    user_id: Optional[int] = None
     user_email: Optional[str] = None
     description: Optional[str] = None
     timestamp: Optional[datetime] = None

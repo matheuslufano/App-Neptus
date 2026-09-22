@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
-from uuid import UUID
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -8,7 +8,7 @@ class UsuarioBase(BaseModel):
     email: EmailStr
     e_admin: bool = False
     esta_ativo: bool = True
-    perfil_id: UUID
+    perfil_id: int
 
 class UsuarioCreate(UsuarioBase):
     senha: str
@@ -18,17 +18,17 @@ class UsuarioUpdate(BaseModel):
     email: Optional[EmailStr] = None
     e_admin: Optional[bool] = None
     esta_ativo: Optional[bool] = None
-    perfil_id: Optional[UUID] = None
+    perfil_id: Optional[int] = None
     senha: Optional[str] = None
 
 class UsuarioSimple(BaseModel):
-    id: UUID
+    id: int
     nome: str
     
     model_config = ConfigDict(from_attributes=True)
 
 class Usuario(UsuarioBase):
-    id: UUID
+    id: int
     perfil_nome: Optional[str] = None
     total_propriedades: int = 0
     criado_em: datetime

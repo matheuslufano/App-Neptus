@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useCreateUser } from "@/hooks/useUsers";
 import { CreateUserSchema } from "@/schemas/user-schema";
+import { parseErrorMessage } from "@/utils/error-util";
 
 const ModalAddUser = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,7 +32,7 @@ const ModalAddUser = () => {
       toast.success("Usuário criado com sucesso!");
       setIsModalOpen(false);
     } catch (error) {
-      toast.error("Erro ao criar usuário");
+      toast.error(parseErrorMessage(error));
       console.error("Erro ao adicionar usuário:", error);
     }
   };

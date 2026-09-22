@@ -1,7 +1,7 @@
-import { AxiosError } from "axios";
-
 import api from "@/lib/axios";
 import { Reading } from "@/lib/db/schema";
+import { toApiId } from "@/utils/api-util";
+import { getUserIdFromToken } from "@/utils/jwt-util";
 
 export interface SyncResponse {
   code: string;
@@ -9,38 +9,23 @@ export interface SyncResponse {
   status: number;
 }
 
-export interface SyncErrorResponse extends SyncResponse {
-  leituras_erradas: Array<{
-    tanque_id: string;
-    turbidez: number;
-    temperatura?: number;
-    ph?: number;
-    oxigenio?: number;
-    amonia?: number;
-    cor_agua?: number;
-  }>;
+function requiredNumber(value: number | undefined, fallback = 0): number {
+  return Number(value ?? fallback);
 }
 
-/**
- * Converte Reading do IndexedDB para o formato do backend
- */
-function formatReadingForBackend(reading: Reading) {
+function formatReadingForBackend(reading: Reading, userId: string) {
   return {
-    tanque_id: reading.tankId,
-    turbidez: reading.turbidez,
-    temperatura: reading.temperatura,
-    ph: reading.ph,
-    oxigenio: reading.oxigenio,
-    amonia: reading.amonia,
-    cor_agua: reading.cor_agua,
+    tanque_id: toApiId(reading.tankId),
+    usuario_id: toApiId(userId),
+    turbidez: requiredNumber(reading.turbidez),
+    temperatura: requiredNumber(reading.temperatura),
+    ph: requiredNumber(reading.ph),
+    oxigenio: requiredNumber(reading.oxigenio),
+    amonia: requiredNumber(reading.amonia),
+    cor_agua: requiredNumber(reading.cor_agua),
   };
 }
 
-/**
- * Sincroniza leituras em lote com o servidor
- * @param readings - Array de leituras para sincronizar
- * @returns { success: boolean, syncedIds: string[], failedReadings: Reading[] }
- */
 export async function syncReadingsBatch(readings: Reading[]): Promise<{
   success: boolean;
   syncedIds: string[];
@@ -50,68 +35,42 @@ export async function syncReadingsBatch(readings: Reading[]): Promise<{
     return { success: true, syncedIds: [], failedReadings: [] };
   }
 
-  try {
-    // Formata as leituras para o backend
-    const payload = readings.map(formatReadingForBackend);
+  const userId = await getUserIdFromToken();
 
-    // Envia para o servidor
-    const response = await api.post<SyncResponse>("/v1/leituras/lote", payload);
-
-    if (response.status === 201) {
-      // Sucesso: retorna IDs das leituras sincronizadas
-      return {
-        success: true,
-        syncedIds: readings.map((r) => r.id),
-        failedReadings: [],
-      };
-    }
-
-    // Se chegou aqui, algo inesperado aconteceu
-    return {
-      success: false,
-      syncedIds: [],
-      failedReadings: readings,
-    };
-  } catch (error: AxiosError | unknown) {
-    // Verifica se é erro de conflito (alguns tanques inválidos)
-    if (error instanceof AxiosError && error.response?.status === 409) {
-      const errorData = error.response.data as SyncErrorResponse;
-
-      // Identifica quais leituras falharam
-      const failedTankIds = new Set(
-        errorData.leituras_erradas?.map((r) => r.tanque_id) || [],
-      );
-
-      const syncedIds = readings
-        .filter((r) => !failedTankIds.has(r.tankId))
-        .map((r) => r.id);
-
-      const failedReadings = readings.filter((r) =>
-        failedTankIds.has(r.tankId),
-      );
-
-      console.warn("Sync parcial - algumas leituras falharam:", failedReadings);
-
-      return {
-        success: false,
-        syncedIds,
-        failedReadings,
-      };
-    }
-
-    // Outros erros
-    console.error("Erro ao sincronizar leituras:", error);
+  if (!userId) {
     return {
       success: false,
       syncedIds: [],
       failedReadings: readings,
     };
   }
+
+  const results = await Promise.allSettled(
+    readings.map(async (reading) => {
+      await api.post("/v1/leituras", formatReadingForBackend(reading, userId));
+      return reading.id;
+    }),
+  );
+
+  const syncedIds: string[] = [];
+  const failedReadings: Reading[] = [];
+
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      syncedIds.push(result.value);
+      return;
+    }
+
+    failedReadings.push(readings[index]);
+  });
+
+  return {
+    success: failedReadings.length === 0,
+    syncedIds,
+    failedReadings,
+  };
 }
 
-/**
- * Sincroniza leituras de uma propriedade específica
- */
 export async function syncPropertyReadings(
   propertyId: string,
   readings: Reading[],

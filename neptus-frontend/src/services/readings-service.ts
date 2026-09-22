@@ -1,12 +1,12 @@
-import { AxiosError } from "axios";
-
 import api from "@/lib/axios";
+import { toApiId } from "@/utils/api-util";
 import { formatAndThrowError } from "@/utils/error-util";
 
-// Tipos da API
 export interface ReadingFromAPI {
   id: string;
-  id_tanque: string;
+  tanque_id: string;
+  id_tanque?: string;
+  usuario_id?: string;
   turbidez: number;
   temperatura?: number;
   ph?: number;
@@ -26,73 +26,111 @@ export interface GetReadingsResponse {
 }
 
 export interface GetReadingsParams {
-  tanque_id?: string;
+  tanque_id: string;
   per_page?: number;
   page?: number;
 }
 
-/**
- * Busca leituras do servidor com paginação
- */
+export interface UpdateReadingRequest {
+  turbidez?: number;
+  temperatura?: number;
+  ph?: number;
+  oxigenio?: number;
+  amonia?: number;
+  cor_agua?: number;
+}
+
+const getAuthHeaders = (accessToken?: string) =>
+  accessToken
+    ? {
+        Authorization: `Bearer ${accessToken}`,
+      }
+    : undefined;
+
+const normalizeReading = (reading: ReadingFromAPI): ReadingFromAPI => ({
+  ...reading,
+  id: String(reading.id),
+  tanque_id: String(reading.tanque_id ?? reading.id_tanque),
+  usuario_id:
+    reading.usuario_id !== undefined ? String(reading.usuario_id) : undefined,
+  turbidez: Number(reading.turbidez),
+  temperatura:
+    reading.temperatura !== undefined ? Number(reading.temperatura) : undefined,
+  ph: reading.ph !== undefined ? Number(reading.ph) : undefined,
+  oxigenio: reading.oxigenio !== undefined ? Number(reading.oxigenio) : undefined,
+  amonia: reading.amonia !== undefined ? Number(reading.amonia) : undefined,
+  cor_agua: reading.cor_agua !== undefined ? Number(reading.cor_agua) : undefined,
+});
+
 export const getReadings = async (
   params: GetReadingsParams,
-  accessToken: string,
+  accessToken?: string,
 ): Promise<GetReadingsResponse> => {
   try {
-    const { data } = await api.get<GetReadingsResponse>("/v1/leituras", {
-      params: {
-        tanque_id: params.tanque_id,
-        per_page: params.per_page || 50,
-        page: params.page || 1,
+    const { data } = await api.get<GetReadingsResponse>(
+      `/v1/tanques/${toApiId(params.tanque_id)}/leituras`,
+      {
+        params: {
+          per_page: params.per_page || 50,
+          page: params.page || 1,
+        },
+        headers: getAuthHeaders(accessToken),
       },
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    );
 
-    return data;
+    return {
+      ...data,
+      leituras: data.leituras.map(normalizeReading),
+    };
   } catch (error) {
-    console.error("Erro ao buscar leituras:", error as AxiosError);
     throw formatAndThrowError(error, "Erro ao buscar leituras do servidor");
   }
 };
 
-/**
- * Busca TODAS as leituras de um tanque (lida com paginação automaticamente)
- */
 export const getAllReadingsByTank = async (
   tankId: string,
-  accessToken: string,
+  accessToken?: string,
 ): Promise<ReadingFromAPI[]> => {
   const allReadings: ReadingFromAPI[] = [];
   let totalPages = 1;
 
-  try {
-    // Busca primeira página
-    const firstPageData = await getReadings(
-      { tanque_id: tankId, per_page: 50, page: 1 },
-      accessToken,
-    );
+  const firstPageData = await getReadings(
+    { tanque_id: tankId, per_page: 50, page: 1 },
+    accessToken,
+  );
 
-    allReadings.push(...firstPageData.leituras);
-    totalPages = firstPageData.total_paginas;
+  allReadings.push(...firstPageData.leituras);
+  totalPages = firstPageData.total_paginas;
 
-    // Se houver mais páginas, busca todas
-    if (totalPages > 1) {
-      const promises = [];
-      for (let page = 2; page <= totalPages; page++) {
-        promises.push(
-          getReadings({ tanque_id: tankId, per_page: 50, page }, accessToken),
-        );
-      }
-
-      const results = await Promise.all(promises);
-      results.forEach((result) => allReadings.push(...result.leituras));
+  if (totalPages > 1) {
+    const promises = [];
+    for (let page = 2; page <= totalPages; page++) {
+      promises.push(
+        getReadings({ tanque_id: tankId, per_page: 50, page }, accessToken),
+      );
     }
 
-    return allReadings;
+    const results = await Promise.all(promises);
+    results.forEach((result) => allReadings.push(...result.leituras));
+  }
+
+  return allReadings;
+};
+
+export const updateReading = async (
+  readingId: string,
+  reading: UpdateReadingRequest,
+  accessToken?: string,
+): Promise<ReadingFromAPI> => {
+  try {
+    const { data } = await api.put<ReadingFromAPI>(
+      `/v1/leituras/${toApiId(readingId)}`,
+      reading,
+      { headers: getAuthHeaders(accessToken) },
+    );
+
+    return normalizeReading(data);
   } catch (error) {
-    console.error("Erro ao buscar todas as leituras:", error);
-    throw error;
+    throw formatAndThrowError(error, "Erro ao atualizar a amostra no servidor");
   }
 };

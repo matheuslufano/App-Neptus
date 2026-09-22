@@ -4,62 +4,90 @@ import { useEffect } from "react";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      const registerSW = async () => {
+    if (!("serviceWorker" in navigator)) {
+      console.warn("SW: Service Worker nao suportado neste navegador");
+      return;
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      const clearDevelopmentServiceWorker = async () => {
         try {
-          const registration = await navigator.serviceWorker.register("/sw.js", {
-            scope: "/",
-            updateViaCache: "none", // Nunca usa cache do navegador para o SW
-          });
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(
+            registrations.map((registration) => registration.unregister()),
+          );
 
-          console.log("✅ SW: Service Worker registrado:", registration.scope);
+          if ("caches" in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(
+              cacheNames
+                .filter(
+                  (cacheName) =>
+                    cacheName.includes("neptus") ||
+                    cacheName.includes("workbox"),
+                )
+                .map((cacheName) => caches.delete(cacheName)),
+            );
+          }
 
-          // Verifica se há atualização disponível
-          await registration.update();
-
-          // Listen para atualizações
-          registration.addEventListener("updatefound", () => {
-            console.log("🔄 SW: Nova versão disponível");
-            const newWorker = registration.installing;
-            
-            if (newWorker) {
-              newWorker.addEventListener("statechange", () => {
-                if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-                  // Força ativação imediata da nova versão
-                  newWorker.postMessage({ type: "SKIP_WAITING" });
-                  // Recarrega a página para usar a nova versão
-                  window.location.reload();
-                }
-              });
-            }
-          });
-
-          // Verifica atualizações periodicamente
-          setInterval(() => {
-            registration.update();
-          }, 60000); // A cada 1 minuto
+          console.log("SW: Service Worker desativado em desenvolvimento");
         } catch (error) {
-          console.error("❌ SW: Falha ao registrar:", error);
+          console.error("SW: Falha ao limpar service worker em dev:", error);
         }
       };
 
-      registerSW();
-
-      // Listen para mensagens do Service Worker
-      navigator.serviceWorker.addEventListener("message", (event) => {
-        if (event.data && event.data.type === "SKIP_WAITING") {
-          window.location.reload();
-        }
-      });
-
-      // Listen para mudanças no estado do Service Worker
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        console.log("🔄 SW: Controller mudou - recarregando página");
-        window.location.reload();
-      });
-    } else {
-      console.warn("⚠️ SW: Service Worker não suportado neste navegador");
+      clearDevelopmentServiceWorker();
+      return;
     }
+
+    const registerSW = async () => {
+      try {
+        const registration = await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+          updateViaCache: "none",
+        });
+
+        console.log("SW: Service Worker registrado:", registration.scope);
+
+        await registration.update();
+
+        registration.addEventListener("updatefound", () => {
+          console.log("SW: Nova versao disponivel");
+          const newWorker = registration.installing;
+
+          if (newWorker) {
+            newWorker.addEventListener("statechange", () => {
+              if (
+                newWorker.state === "installed" &&
+                navigator.serviceWorker.controller
+              ) {
+                newWorker.postMessage({ type: "SKIP_WAITING" });
+                window.location.reload();
+              }
+            });
+          }
+        });
+
+        setInterval(() => {
+          registration.update();
+        }, 60000);
+      } catch (error) {
+        console.error("SW: Falha ao registrar:", error);
+      }
+    };
+
+    registerSW();
+
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data && event.data.type === "SKIP_WAITING") {
+        window.location.reload();
+      }
+    });
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      console.log("SW: Controller mudou - recarregando pagina");
+      window.location.reload();
+    });
   }, []);
 
   return null;

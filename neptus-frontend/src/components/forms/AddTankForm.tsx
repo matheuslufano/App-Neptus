@@ -89,6 +89,7 @@ const AddTankForm = ({ onSubmit, id, initialValues }: AddTankFormProps) => {
                     <SelectValue placeholder="Selecione o tipo de tanque" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="tanque">Tanque</SelectItem>
                     <SelectItem value="elevado">Elevado</SelectItem>
                     <SelectItem value="barramento">Barramento</SelectItem>
                     <SelectItem value="escavado">Escavado</SelectItem>

@@ -1,11 +1,11 @@
 from pydantic import BaseModel, ConfigDict, field_validator
-from uuid import UUID
+
 from datetime import datetime
 from typing import Optional
 from decimal import Decimal
 
 class LeituraBase(BaseModel):
-    tanque_id: UUID
+    tanque_id: int
     turbidez: Decimal
     oxigenio: Decimal
     temperatura: Decimal
@@ -28,7 +28,7 @@ class LeituraBase(BaseModel):
         return v
 
 class LeituraCreate(LeituraBase):
-    usuario_id: UUID
+    usuario_id: int
 
 class LeituraUpdate(BaseModel):
     turbidez: Optional[Decimal] = None
@@ -39,8 +39,8 @@ class LeituraUpdate(BaseModel):
     cor_agua: Optional[int] = None
 
 class Leitura(LeituraBase):
-    id: UUID
-    usuario_id: UUID
+    id: int
+    usuario_id: int
     criado_em: datetime
     atualizado_em: datetime
 

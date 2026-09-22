@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 import { tanksDb } from "@/lib/db";
 import type { Tank as DBTank } from "@/lib/db/schema";
 import { AddTankSchema } from "@/schemas/addTank-schema";
+import {
+  createTank as createTankRequest,
+  deactivateTank as deactivateTankRequest,
+  getAllTanks,
+  TankFromAPI,
+  updateTank as updateTankRequest,
+} from "@/services/tanks-service";
 import { usePropertyStore } from "@/stores/propertyStore";
 
 export interface Tank {
@@ -13,58 +21,82 @@ export interface Tank {
   fishCount: number;
   averageWeight: number;
   tankArea: number;
+  active: boolean;
   createdAt: string;
 }
 
-/**
- * Hook para gerenciar tanques usando IndexedDB
- * IMPORTANTE: Requer propertyId configurado em localStorage
- */
+const tankFromAPI = (apiTank: TankFromAPI): DBTank => ({
+  id: apiTank.id,
+  userId: apiTank.id_usuario,
+  propertyId: apiTank.id_propriedade,
+  name: apiTank.nome,
+  area: apiTank.area_tanque,
+  fishType: apiTank.tipo_peixe,
+  fishWeight: apiTank.peso_peixe,
+  fishCount: apiTank.qtd_peixe,
+  active: apiTank.ativo,
+  createdAt: apiTank.criado_em ? new Date(apiTank.criado_em) : new Date(),
+  updatedAt: apiTank.atualizado_em ? new Date(apiTank.atualizado_em) : new Date(),
+  syncStatus: "synced",
+});
+
+const convertFromDB = (dbTank: DBTank): Tank => ({
+  id: dbTank.id,
+  name: dbTank.name,
+  type: "tanque",
+  fish: dbTank.fishType,
+  fishCount: dbTank.fishCount,
+  averageWeight: dbTank.fishWeight,
+  tankArea: dbTank.area,
+  active: dbTank.active,
+  createdAt: dbTank.createdAt.toISOString(),
+});
+
+const visibleTanks = (tanks: DBTank[]): Tank[] =>
+  tanks.filter((tank) => tank.active).map(convertFromDB);
+
 export const useTanks = () => {
   const [tanks, setTanks] = useState<Tank[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { selectedPropertyId } = usePropertyStore();
+  const { data: session, status: sessionStatus } = useSession();
 
-  // Converte Tank do IndexedDB para formato do componente
-  const convertFromDB = (dbTank: DBTank): Tank => ({
-    id: dbTank.id,
-    name: dbTank.name,
-    type: dbTank.fishType, // Usando fishType como type temporariamente
-    fish: dbTank.fishType,
-    fishCount: dbTank.fishCount,
-    averageWeight: dbTank.fishWeight,
-    tankArea: dbTank.area,
-    createdAt: dbTank.createdAt.toISOString(),
-  });
+  const loadTanks = useCallback(async () => {
+    if (!selectedPropertyId) {
+      setTanks([]);
+      setIsLoading(false);
+      return;
+    }
 
-  // Carregar tanques do IndexedDB
+    if (sessionStatus === "loading") {
+      setIsLoading(true);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const apiTanks = await getAllTanks(
+        selectedPropertyId,
+        session?.access_token,
+      );
+      const syncedTanks = apiTanks.map(tankFromAPI);
+
+      await tanksDb.clearByProperty(selectedPropertyId);
+      await tanksDb.bulkPut(syncedTanks);
+      setTanks(visibleTanks(syncedTanks));
+    } catch (error) {
+      console.error("Erro ao carregar tanques da API:", error);
+      const dbTanks = await tanksDb.getByProperty(selectedPropertyId);
+      setTanks(visibleTanks(dbTanks));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedPropertyId, session?.access_token, sessionStatus]);
+
   useEffect(() => {
-    const loadTanks = async () => {
-      try {
-        if (!selectedPropertyId) {
-          setTanks([]);
-          setIsLoading(false);
-          return;
-        }
-
-        // Busca tanques do IndexedDB
-        const dbTanks = await tanksDb.getByProperty(selectedPropertyId);
-
-        // Converte para formato do componente
-        const convertedTanks = dbTanks.map(convertFromDB);
-
-        setTanks(convertedTanks);
-      } catch (error) {
-        console.error("Erro ao carregar tanques do IndexedDB:", error);
-        setTanks([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadTanks();
 
-    // Listener para o evento customizado disparado por outras instâncias do hook
     const handleTanksUpdated = () => {
       loadTanks();
     };
@@ -74,75 +106,79 @@ export const useTanks = () => {
     return () => {
       window.removeEventListener("neptus_tanks_updated", handleTanksUpdated);
     };
-  }, [selectedPropertyId]);
+  }, [loadTanks]);
 
-  // Recarregar tanques do IndexedDB
   const reloadTanks = useCallback(async () => {
-    try {
-      if (!selectedPropertyId) {
-        setTanks([]);
-        return;
-      }
+    await loadTanks();
+  }, [loadTanks]);
 
-      const dbTanks = await tanksDb.getByProperty(selectedPropertyId);
-      const convertedTanks = dbTanks.map(convertFromDB);
-      setTanks(convertedTanks);
-    } catch (error) {
-      console.error("Erro ao recarregar tanques:", error);
-    }
-  }, [selectedPropertyId]);
-
-  // Adicionar tanque (salva no IndexedDB com status pending)
   const addTank = useCallback(
-    async (tankData: AddTankSchema) => {
-      try {
-        if (!selectedPropertyId) {
-          throw new Error("PropertyId não configurado");
-        }
+    async (tankData: AddTankSchema, propertyId?: string) => {
+      const targetPropertyId = propertyId ?? selectedPropertyId;
 
-        const userId = "local-user"; // TODO: Pegar do session
-
-        const id = await tanksDb.add({
-          propertyId: selectedPropertyId,
-          userId,
-          name: tankData.name,
-          area: tankData.tankArea,
-          fishType: tankData.fish,
-          fishWeight: tankData.averageWeight,
-          fishCount: tankData.fishCount,
-          active: true,
-        });
-
-        // Recarrega a lista
-        await reloadTanks();
-        // Dispara evento para outras instâncias do mesmo hook
-        window.dispatchEvent(new Event("neptus_tanks_updated"));
-
-        return { id, ...tankData, createdAt: new Date().toISOString() } as Tank;
-      } catch (error) {
-        console.error("Erro ao adicionar tanque:", error);
-        throw error;
+      if (!targetPropertyId) {
+        throw new Error("PropertyId nao configurado");
       }
+
+      if (!session?.user.id) {
+        throw new Error("Usuario nao autenticado");
+      }
+
+      const apiTank = await createTankRequest(
+        {
+          nome: tankData.name,
+          id_propriedade: targetPropertyId,
+          id_usuario: session.user.id,
+          area_tanque: tankData.tankArea,
+          tipo_peixe: tankData.fish,
+          peso_peixe: tankData.averageWeight,
+          qtd_peixe: tankData.fishCount,
+          ativo: true,
+        },
+        session.access_token,
+      );
+
+      await tanksDb.save(tankFromAPI(apiTank));
+      await reloadTanks();
+      window.dispatchEvent(new Event("neptus_tanks_updated"));
+
+      return convertFromDB(tankFromAPI(apiTank));
     },
-    [reloadTanks, selectedPropertyId],
+    [reloadTanks, selectedPropertyId, session?.access_token, session?.user.id],
   );
 
-  // Atualizar tanque (não implementado ainda - requer API)
   const updateTank = useCallback(
     async (id: string, tankData: AddTankSchema) => {
-      // TODO: Implementar API de atualização
-      return Promise.resolve();
+      const apiTank = await updateTankRequest(
+        id,
+        {
+          nome: tankData.name,
+          area_tanque: tankData.tankArea,
+          tipo_peixe: tankData.fish,
+          peso_peixe: tankData.averageWeight,
+          qtd_peixe: tankData.fishCount,
+          ativo: true,
+        },
+        session?.access_token,
+      );
+
+      await tanksDb.save(tankFromAPI(apiTank));
+      await reloadTanks();
+      window.dispatchEvent(new Event("neptus_tanks_updated"));
     },
-    [],
+    [reloadTanks, session?.access_token],
   );
 
-  // Deletar tanque (não implementado ainda - requer API)
-  const deleteTank = useCallback(async (id: string) => {
-    // TODO: Implementar API de deleção
-    return Promise.resolve();
-  }, []);
+  const deleteTank = useCallback(
+    async (id: string) => {
+      await deactivateTankRequest(id, session?.access_token);
+      await tanksDb.remove(id);
+      await reloadTanks();
+      window.dispatchEvent(new Event("neptus_tanks_updated"));
+    },
+    [reloadTanks, session?.access_token],
+  );
 
-  // Buscar tanque por ID
   const getTankById = useCallback(
     (id: string) => {
       return tanks.find((tank) => tank.id === id);
@@ -157,5 +193,6 @@ export const useTanks = () => {
     updateTank,
     deleteTank,
     getTankById,
+    refetch: reloadTanks,
   };
 };

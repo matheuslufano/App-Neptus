@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, Download, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
@@ -63,11 +63,6 @@ export default function InitialDataSync({
         // Marca que já fez sincronização inicial
         localStorage.setItem("hasInitialSync", "true");
 
-        // Aguarda 2s e redireciona
-        setTimeout(() => {
-          onComplete?.();
-          router.push("/");
-        }, 2000);
       } else {
         setStatus("error");
         toast.error(result.error || "Erro ao sincronizar dados", {
@@ -79,6 +74,11 @@ export default function InitialDataSync({
       setStatus("error");
       toast.error("Erro ao sincronizar dados", { id: "initial-sync" });
     }
+  };
+
+  const handleComplete = () => {
+    onComplete?.();
+    router.push("/");
   };
 
   // Auto-inicia se estiver logado
@@ -131,16 +131,22 @@ export default function InitialDataSync({
 
           {/* Progresso */}
           {status === "success" && (
-            <div className="bg-muted p-4 rounded-lg text-sm">
-              <div className="flex justify-between mb-2">
-                <span>Tanques:</span>
-                <span className="font-semibold">{progress.tanks}</span>
+            <>
+              <div className="bg-muted p-4 rounded-lg text-sm">
+                <div className="flex justify-between mb-2">
+                  <span>Tanques:</span>
+                  <span className="font-semibold">{progress.tanks}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Leituras:</span>
+                  <span className="font-semibold">{progress.readings}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>Leituras:</span>
-                <span className="font-semibold">{progress.readings}</span>
-              </div>
-            </div>
+              <Button onClick={handleComplete} className="w-full" size="lg">
+                <ArrowLeft className="mr-2 h-5 w-5" />
+                Voltar ao painel
+              </Button>
+            </>
           )}
 
           {/* Botão de retry */}

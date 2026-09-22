@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
-import uuid
+
 from app.database import db
 
 
 class Perfil(db.Model):
   __tablename__ = 'perfil'
-  id = db.Column(db.Uuid, primary_key=True, default=uuid.uuid4)
+  id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   nome = db.Column(db.String(50), unique=True, nullable=False)
   permissoes = db.Column(db.JSON, nullable=False, default=[])
   usuarios = db.relationship('Usuario', back_populates='perfil', lazy='selectin')
@@ -16,7 +16,7 @@ class Perfil(db.Model):
 
   def to_dict(self):
     return {
-        "id": str(self.id),
+        "id": self.id,
         "nome": self.nome,
         "permissoes": self.permissoes,
         "usuarios_count": len(self.usuarios),
